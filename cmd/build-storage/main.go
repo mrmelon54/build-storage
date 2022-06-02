@@ -1,11 +1,15 @@
 package main
 
 import (
+	"build-storage/structure"
 	"fmt"
 	"github.com/joho/godotenv"
+	"gopkg.in/yaml.v3"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"sync"
 	"syscall"
 	"time"
@@ -27,16 +31,44 @@ func main() {
 		log.Fatalln("Error loading .env file")
 	}
 
-	buildDir := os.Getenv("BUILD_DIR")
-	stat, err := os.Stat(buildDir)
+	baseDir := os.Getenv("BASE_DIR")
+	stat, err := os.Stat(baseDir)
 	if err != nil {
-		log.Fatalln("Build dir error:", err)
+		log.Fatalln("BASE_DIR error:", err)
 	}
 	if !stat.IsDir() {
-		log.Fatalln("Build dir is not a directory")
+		log.Fatalln("BASE_DIR is not a directory")
 	}
 
-	httpServer := setupHttpServer()
+	configFile, err := os.Open(path.Join(baseDir, "config.yml"))
+	if err != nil {
+		log.Fatalln("Failed to open config.yml")
+	}
+
+	var configYml structure.ConfigYaml
+	groupsDecoder := yaml.NewDecoder(configFile)
+	err = groupsDecoder.Decode(&configYml)
+	if err != nil {
+		log.Fatalln("Failed to parse config.yml:", err)
+	}
+
+	stat, err = os.Stat(path.Join(baseDir, configYml.BuildDir))
+	if err != nil {
+		log.Fatalln("buildDir error:", err)
+	}
+	if !stat.IsDir() {
+		log.Fatalln("buildDir is not a directory")
+	}
+
+	httpServer := setupHttpServer(configYml, NewBuildManager(baseDir, configYml))
+	err = httpServer.ListenAndServe()
+	if err != nil {
+		if err == http.ErrServerClosed {
+			log.Println("HTTP Server shutdown successfully")
+		} else {
+			log.Fatalln(err)
+		}
+	}
 
 	//=====================
 	// Safe shutdown
