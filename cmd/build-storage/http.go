@@ -23,21 +23,13 @@ func setupHttpServer(configYml structure.ConfigYaml, buildManager *BuildManager)
 	router.HandleFunc("/{group}/upload", func(rw http.ResponseWriter, req *http.Request) {
 		bearer := req.Header.Get("Authorization")
 		vars := mux.Vars(req)
+		groupName := vars["group"]
+		if groupName == "test" {
+
+		}
 		if groupYml, ok := configYml.Groups[vars["group"]]; ok {
 			if isValidBearer(groupYml.Bearer, bearer) {
-				uploadFile, uploadHeader, err := req.FormFile("upload")
-				if err != nil {
-					log.Println("Failed to find uploaded file:", err)
-					http.Error(rw, "Failed to find uploaded file", http.StatusBadRequest)
-					return
-				}
-				projectName, _, layers := getUploadMeta(uploadHeader.Filename, groupYml.Parser)
-				err = buildManager.Upload(uploadHeader.Filename, uploadFile, projectName, layers)
-				if err != nil {
-					log.Println("Failed to upload artifact:", err)
-					http.Error(rw, "Failed to upload artifact", http.StatusInternalServerError)
-					return
-				}
+				handleValidUpload(rw, req, groupYml, buildManager)
 			}
 		}
 	}).Methods(http.MethodPost)
@@ -47,6 +39,22 @@ func setupHttpServer(configYml structure.ConfigYaml, buildManager *BuildManager)
 		Handler: router,
 	}
 	return httpServer
+}
+
+func handleValidUpload(rw http.ResponseWriter, req *http.Request, groupYml structure.GroupYaml, buildManager *BuildManager) {
+	uploadFile, uploadHeader, err := req.FormFile("upload")
+	if err != nil {
+		log.Println("Failed to find uploaded file:", err)
+		http.Error(rw, "Failed to find uploaded file", http.StatusBadRequest)
+		return
+	}
+	projectName, _, layers := getUploadMeta(uploadHeader.Filename, groupYml.Parser)
+	err = buildManager.Upload(uploadHeader.Filename, uploadFile, projectName, layers)
+	if err != nil {
+		log.Println("Failed to upload artifact:", err)
+		http.Error(rw, "Failed to upload artifact", http.StatusInternalServerError)
+		return
+	}
 }
 
 func isValidBearer(validBearers []string, bearer string) bool {
