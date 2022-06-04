@@ -3,7 +3,6 @@ package main
 import (
 	"build-storage/structure"
 	"io"
-	"mime/multipart"
 	"os"
 	"path"
 )
@@ -17,7 +16,7 @@ func NewBuildManager(baseDir string, configYml structure.ConfigYaml) *BuildManag
 	return &BuildManager{baseDir, configYml}
 }
 
-func (b *BuildManager) Upload(fileName string, fileData multipart.File, projectName string, projectLayers []string) error {
+func (b *BuildManager) Upload(fileName string, fileData io.Reader, projectName string, projectLayers []string) error {
 	join := path.Join(b.baseDir, b.configYml.BuildDir, projectName, path.Join(projectLayers...))
 	err := os.MkdirAll(join, 0770)
 	if err != nil {
