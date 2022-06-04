@@ -9,9 +9,9 @@ type ConfigYaml struct {
 }
 
 type GroupYaml struct {
-	Name   string     `yaml:"name"`
-	Bearer []string   `yaml:"bearer"`
-	Parser ParserYaml `yaml:"parser"`
+	Name   string            `yaml:"name"`
+	Bearer map[string]string `yaml:"bearer"`
+	Parser ParserYaml        `yaml:"parser"`
 }
 
 type ParserYaml struct {

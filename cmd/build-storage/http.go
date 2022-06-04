@@ -16,29 +16,46 @@ func setupHttpServer(configYml structure.ConfigYaml, buildManager *BuildManager)
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, "Hi", http.StatusOK)
-	})
+	}).Methods(http.MethodGet)
 	router.HandleFunc("/v/{group}", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
 		if groupYml, ok := configYml.Groups[vars["group"]]; ok {
-			_, _ = fmt.Fprintln(rw, groupYml.Name)
-			_, _ = fmt.Fprintln(rw, groupYml.Parser)
+			_, _ = fmt.Fprintln(rw, "Group:", groupYml.Name)
+			_, _ = fmt.Fprintln(rw, "Parser:", groupYml.Parser)
+		} else {
+			http.Error(rw, "404 Not Found", http.StatusNotFound)
 		}
-	})
-	router.HandleFunc("/u/{group}", func(rw http.ResponseWriter, req *http.Request) {
+	}).Methods(http.MethodGet)
+	router.HandleFunc("/v/{group}/{project}", func(rw http.ResponseWriter, req *http.Request) {
+		vars := mux.Vars(req)
+		if groupYml, ok := configYml.Groups[vars["group"]]; ok {
+			if _, ok = groupYml.Bearer[vars["project"]]; ok {
+				_, _ = fmt.Fprintln(rw, "Group:", vars["group"])
+				_, _ = fmt.Fprintln(rw, "Project:", vars["project"])
+			}
+		}
+	}).Methods(http.MethodGet)
+	router.HandleFunc("/u/{group}/{project}", func(rw http.ResponseWriter, req *http.Request) {
 		bearer := req.Header.Get("Authorization")
 		vars := mux.Vars(req)
 		groupName := vars["group"]
-		if groupName == "test" {
-
+		projectName := vars["project"]
+		if groupName == "test" || projectName == "test" {
+			// Add tests later
+			http.Error(rw, "404 Not Found", http.StatusNotFound)
+			return
 		}
-		if groupYml, ok := configYml.Groups[vars["group"]]; ok {
-			if isValidBearer(groupYml.Bearer, bearer) {
-				handleValidUpload(rw, req, groupYml, buildManager)
+		if groupYml, ok := configYml.Groups[groupName]; ok {
+			if projectBearer, ok := groupYml.Bearer[projectName]; ok {
+				if "Bearer "+projectBearer == bearer {
+					handleValidUpload(rw, req, groupYml, buildManager)
+				} else {
+					http.Error(rw, "401 Unauthorized", http.StatusUnauthorized)
+				}
 			} else {
-				http.Error(rw, "401 Unauthorized", http.StatusUnauthorized)
+				http.Error(rw, "404 Not Found", http.StatusNotFound)
 			}
 		} else {
-			log.Println("404 not found")
 			http.Error(rw, "404 Not Found", http.StatusNotFound)
 		}
 	}).Methods(http.MethodPost)
@@ -87,15 +104,6 @@ func handleValidUpload(rw http.ResponseWriter, req *http.Request, groupYml struc
 			}
 		}
 	}
-}
-
-func isValidBearer(validBearers []string, bearer string) bool {
-	for _, i := range validBearers {
-		if bearer == "Bearer "+i {
-			return true
-		}
-	}
-	return false
 }
 
 func getUploadMeta(name string, parser structure.ParserYaml) (projectName string, layers []string) {
