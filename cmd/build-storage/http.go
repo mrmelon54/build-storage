@@ -48,7 +48,7 @@ func setupHttpServer(configYml structure.ConfigYaml, buildManager *BuildManager)
 		if groupYml, ok := configYml.Groups[groupName]; ok {
 			if projectBearer, ok := groupYml.Bearer[projectName]; ok {
 				if "Bearer "+projectBearer == bearer {
-					handleValidUpload(rw, req, groupYml, buildManager)
+					handleValidUpload(rw, req, groupYml, groupName, buildManager)
 				} else {
 					http.Error(rw, "401 Unauthorized", http.StatusUnauthorized)
 				}
@@ -67,7 +67,7 @@ func setupHttpServer(configYml structure.ConfigYaml, buildManager *BuildManager)
 	return httpServer
 }
 
-func handleValidUpload(rw http.ResponseWriter, req *http.Request, groupYml structure.GroupYaml, buildManager *BuildManager) {
+func handleValidUpload(rw http.ResponseWriter, req *http.Request, groupYml structure.GroupYaml, groupName string, buildManager *BuildManager) {
 	uploadFile, uploadHeader, err := req.FormFile("upload")
 	if err != nil {
 		log.Println("Failed to find uploaded file:", err)
@@ -98,7 +98,7 @@ func handleValidUpload(rw http.ResponseWriter, req *http.Request, groupYml struc
 		case tar.TypeReg:
 			b := path.Base(header.Name)
 			projectName, layers := getUploadMeta(b, groupYml.Parser)
-			err = buildManager.Upload(b, tarReader, projectName, layers)
+			err = buildManager.Upload(b, tarReader, groupName, projectName, layers)
 			if err != nil {
 				log.Printf("Failed to upload artifact '%s' from '%s'\n", header.Name, uploadHeader.Filename)
 			}

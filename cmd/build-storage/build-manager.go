@@ -16,8 +16,8 @@ func NewBuildManager(baseDir string, configYml structure.ConfigYaml) *BuildManag
 	return &BuildManager{baseDir, configYml}
 }
 
-func (b *BuildManager) Upload(fileName string, fileData io.Reader, projectName string, projectLayers []string) error {
-	join := path.Join(b.baseDir, b.configYml.BuildDir, projectName, path.Join(projectLayers...))
+func (b *BuildManager) Upload(fileName string, fileData io.Reader, groupName, projectName string, projectLayers []string) error {
+	join := path.Join(b.baseDir, b.configYml.BuildDir, groupName, projectName, path.Join(projectLayers...))
 	err := os.MkdirAll(join, 0770)
 	if err != nil {
 		return err
