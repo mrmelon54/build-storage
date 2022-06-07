@@ -1,4 +1,4 @@
-package main
+package manager
 
 import (
 	"build-storage/structure"
@@ -12,7 +12,7 @@ type BuildManager struct {
 	configYml structure.ConfigYaml
 }
 
-func NewBuildManager(baseDir string, configYml structure.ConfigYaml) *BuildManager {
+func New(baseDir string, configYml structure.ConfigYaml) *BuildManager {
 	return &BuildManager{baseDir, configYml}
 }
 
@@ -28,4 +28,13 @@ func (b *BuildManager) Upload(fileName string, fileData io.Reader, groupName, pr
 	}
 	_, err = io.Copy(create, fileData)
 	return err
+}
+
+func (b *BuildManager) GetAllGroups() map[string]structure.GroupYaml {
+	return b.configYml.Groups
+}
+
+func (b *BuildManager) GetGroup(name string) (structure.GroupYaml, bool) {
+	group, ok := b.configYml.Groups[name]
+	return group, ok
 }

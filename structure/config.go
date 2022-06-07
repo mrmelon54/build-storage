@@ -3,9 +3,14 @@ package structure
 import "build-storage/utils"
 
 type ConfigYaml struct {
-	Listen   string               `yaml:"listen"`
+	Listen   ListenYaml           `yaml:"listen"`
 	BuildDir string               `yaml:"buildDir"`
 	Groups   map[string]GroupYaml `yaml:"groups"`
+}
+
+type ListenYaml struct {
+	Web string `yaml:"web"`
+	Api string `yaml:"api"`
 }
 
 type GroupYaml struct {

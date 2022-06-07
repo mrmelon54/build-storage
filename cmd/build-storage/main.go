@@ -1,6 +1,7 @@
 package main
 
 import (
+	"build-storage/manager"
 	"build-storage/structure"
 	"fmt"
 	"github.com/joho/godotenv"
@@ -60,7 +61,7 @@ func main() {
 		log.Fatalln("buildDir is not a directory")
 	}
 
-	httpServer := setupHttpServer(configYml, NewBuildManager(baseDir, configYml))
+	httpServer := setupApiServer(configYml, manager.New(baseDir, configYml))
 	err = httpServer.ListenAndServe()
 	if err != nil {
 		if err == http.ErrServerClosed {
