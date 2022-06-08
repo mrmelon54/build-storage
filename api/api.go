@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"archive/tar"
@@ -12,7 +12,7 @@ import (
 	"path"
 )
 
-func setupApiServer(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *http.Server {
+func SetupApiServer(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *http.Server {
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
 		http.Error(rw, "Build Storage API Endpoint", http.StatusOK)
@@ -28,8 +28,8 @@ func setupApiServer(configYml structure.ConfigYaml, buildManager *manager.BuildM
 			return
 		}
 		if groupYml, ok := configYml.Groups[groupName]; ok {
-			if projectBearer, ok := groupYml.Bearer[projectName]; ok {
-				if "Bearer "+projectBearer == bearer {
+			if project, ok := groupYml.Projects[projectName]; ok {
+				if "Bearer "+project.Bearer == bearer {
 					handleValidUpload(rw, req, groupYml, groupName, buildManager)
 				} else {
 					http.Error(rw, "401 Unauthorized", http.StatusUnauthorized)

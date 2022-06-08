@@ -1,8 +1,10 @@
 package main
 
 import (
+	"build-storage/api"
 	"build-storage/manager"
 	"build-storage/structure"
+	"build-storage/web"
 	"fmt"
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
@@ -61,15 +63,11 @@ func main() {
 		log.Fatalln("buildDir is not a directory")
 	}
 
-	httpServer := setupApiServer(configYml, manager.New(baseDir, configYml))
-	err = httpServer.ListenAndServe()
-	if err != nil {
-		if err == http.ErrServerClosed {
-			log.Println("HTTP Server shutdown successfully")
-		} else {
-			log.Fatalln(err)
-		}
-	}
+	buildManager := manager.New(baseDir, configYml)
+	webServer := web.SetupWebServer(configYml, buildManager)
+	apiServer := api.SetupApiServer(configYml, buildManager)
+	runHttpServer(apiServer, "Web Server shutdown successfully")
+	runHttpServer(webServer, "API Server shutdown successfully")
 
 	//=====================
 	// Safe shutdown
@@ -81,7 +79,11 @@ func main() {
 		log.Printf("[Main] Attempting safe shutdown\n")
 		a := time.Now()
 		log.Printf("[Main] Shutting down HTTP server...\n")
-		err := httpServer.Close()
+		err = webServer.Close()
+		if err != nil {
+			log.Println(err)
+		}
+		err = apiServer.Close()
 		if err != nil {
 			log.Println(err)
 		}
@@ -94,4 +96,17 @@ func main() {
 	//=====================
 	wg.Wait()
 	log.Println("[Main] Goodbye")
+}
+
+func runHttpServer(httpServer *http.Server, closeMessage string) {
+	go func() {
+		err := httpServer.ListenAndServe()
+		if err != nil {
+			if err == http.ErrServerClosed {
+				log.Println(closeMessage)
+			} else {
+				log.Fatalln(err)
+			}
+		}
+	}()
 }

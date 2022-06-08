@@ -9,12 +9,18 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"golang.org/x/oauth2"
+	"html/template"
+	"log"
 	"net/http"
 	"os"
 )
 
-//go:embed pages/index.go.html
-var indexTemplate string
+var (
+	//go:embed pages/index.go.html
+	indexTemplate string
+	//go:embed pages/group.go.html
+	groupTemplate string
+)
 
 type Module struct {
 	sessionWrapper func(cb func(http.ResponseWriter, *http.Request, *utils.State)) func(rw http.ResponseWriter, req *http.Request)
@@ -30,47 +36,64 @@ const (
 	KeyRefreshToken
 )
 
-func New() *Module {
+func SetupWebServer(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *http.Server {
 	gob.Register(new(buildServiceKeyType))
-	return &Module{
-		oauthClient: &oauth2.Config{
-			ClientID:     os.Getenv("MELON_CLIENT_ID"),
-			ClientSecret: os.Getenv("MELON_CLIENT_SECRET"),
-			Scopes:       []string{"openid"},
-			Endpoint: oauth2.Endpoint{
-				AuthURL:  "https://id.mrmelon54.xyz/oauth/authorize",
-				TokenURL: "https://id.mrmelon54.xyz/api/oauth/token",
-			},
-			RedirectURL: os.Getenv("MELON_REDIRECT_URL"),
+	oauthConfig := &oauth2.Config{
+		ClientID:     os.Getenv("MELON_CLIENT_ID"),
+		ClientSecret: os.Getenv("MELON_CLIENT_SECRET"),
+		Scopes:       []string{"openid"},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://id.mrmelon54.xyz/oauth/authorize",
+			TokenURL: "https://id.mrmelon54.xyz/api/oauth/token",
 		},
+		RedirectURL: os.Getenv("MELON_REDIRECT_URL"),
 	}
-}
+	fmt.Println(oauthConfig.RedirectURL)
 
-func setupWebServer(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *http.Server {
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
-		_, _ = fmt.Fprintln(rw, "<html>\n<head>")
-		_, _ = fmt.Fprintf(rw, "  <title>%s</title>\n", "Build Storage")
-		_, _ = fmt.Fprintln(rw, "</head>\n<body>")
+		a := struct {
+			Title  string
+			Groups map[string]string
+		}{
+			Title:  configYml.Title,
+			Groups: make(map[string]string),
+		}
 		groups := buildManager.GetAllGroups()
 		for k, g := range groups {
-			_, _ = fmt.Fprintf(rw, "- <a href=\"/%s\">%s</a><br>\n", k, g.Name)
+			a.Groups[k] = g.Name
 		}
-		_, _ = fmt.Fprintln(rw, "</body>\n</html>")
+
+		err := fillTemplate(rw, indexTemplate, a)
+		if err != nil {
+			log.Println(err)
+			http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
+		}
 	}).Methods(http.MethodGet)
 	router.HandleFunc("/{group}", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
 		group, ok := buildManager.GetGroup(vars["group"])
 		if ok {
-			_, _ = fmt.Fprintln(rw, "<html>\n<head>")
-			_, _ = fmt.Fprintf(rw, "  <title>%s</title>\n", group.Name)
-			_, _ = fmt.Fprintln(rw, "</head>\n<body>")
-			_, _ = fmt.Fprintf(rw, "Name: %s<br>\n", group.Name)
-			_, _ = fmt.Fprintln(rw, "Projects:<br>")
-			for k := range group.Bearer {
-				_, _ = fmt.Fprintf(rw, "- <a href=\"/%s/%s\">%s</a><br>\n", vars["group"], k, group.Name)
+			a := struct {
+				Title     string
+				GroupCode string
+				Group     structure.GroupYaml
+				Projects  map[string]string
+			}{
+				Title:     configYml.Title,
+				GroupCode: vars["group"],
+				Group:     group,
+				Projects:  make(map[string]string),
 			}
-			_, _ = fmt.Fprintln(rw, "</body>\n</html>")
+			for k, p := range group.Projects {
+				a.Projects[k] = p.Name
+			}
+
+			err := fillTemplate(rw, groupTemplate, a)
+			if err != nil {
+				log.Println(err)
+				http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
+			}
 		} else {
 			http.Error(rw, "404 Not Found", http.StatusNotFound)
 		}
@@ -81,4 +104,13 @@ func setupWebServer(configYml structure.ConfigYaml, buildManager *manager.BuildM
 		Handler: router,
 	}
 	return httpServer
+}
+
+func fillTemplate(rw http.ResponseWriter, text string, data any) error {
+	temp := template.New("index")
+	parse, err := temp.Parse(text)
+	if err != nil {
+		return err
+	}
+	return parse.Execute(rw, data)
 }

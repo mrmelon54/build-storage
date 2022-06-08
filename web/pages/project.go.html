@@ -1,0 +1,17 @@
+<html lang="en-GB">
+<head>
+    <title>{{ .Project }} | {{ .Group }} | {{ .Title }}</title>
+</head>
+<body>
+<h1>{{ .Title }}</h1>
+<h2>{{ .Group }}</h2>
+<h3>{{ .Project }}</h3>
+<ul>
+    {{ range $k, $v := .Files }}
+        <li>
+            <a href="{{ $k }}">{{ $v }}</a>
+        </li>
+    {{ end }}
+</ul>
+</body>
+</html>
