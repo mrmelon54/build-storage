@@ -14,7 +14,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 )
 
 type buildServiceKeyType int
@@ -36,17 +35,17 @@ type Module struct {
 }
 
 func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Module {
-	sessionStore := sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+	sessionStore := sessions.NewCookieStore([]byte(configYml.Login.SessionKey))
 	return &Module{
 		oauthConfig: &oauth2.Config{
-			ClientID:     os.Getenv("MELON_CLIENT_ID"),
-			ClientSecret: os.Getenv("MELON_CLIENT_SECRET"),
+			ClientID:     configYml.Login.ClientId,
+			ClientSecret: configYml.Login.ClientSecret,
 			Scopes:       []string{"openid"},
 			Endpoint: oauth2.Endpoint{
-				AuthURL:  os.Getenv("MELON_AUTHORIZE_URL"),
-				TokenURL: os.Getenv("MELON_TOKEN_URL"),
+				AuthURL:  configYml.Login.AuthorizeUrl,
+				TokenURL: configYml.Login.TokenUrl,
 			},
-			RedirectURL: os.Getenv("MELON_REDIRECT_URL"),
+			RedirectURL: configYml.Login.RedirectUrl,
 		},
 		stateManager: utils.NewStateManager(sessionStore),
 		configYml:    configYml,

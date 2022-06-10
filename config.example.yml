@@ -1,0 +1,55 @@
+# Put this file in the BASE_DIR folder defined in the .env file
+# The build dir is relative to the BASE_DIR
+title: Build Storage
+listen:
+  web: ':8080'
+  api: ':8081'
+login:
+  session-key: '' # please put your own random string here
+  client-id: ''
+  client-secret: ''
+  authorize-url: https://example.com/oauth/authorize # url to authorize oauth login
+  token-url: https://example.com/oauth/token # url to get oauth token
+  redirect-url: https://example.com/login # url to redirect back to the build storage service
+buildDir: builds
+groups:
+  mc-mod:
+    name: Minecraft Mods
+    icon: https://via.placeholder.com/500
+    parser:
+      exp: '(?P<name>.+?)-(?P<mcVersion>mc[0-9]+\.[0-9]+(\.[0-9]+)?)-(?P<modVersion>[0-9]+\.[0-9]+\.[0-9]+)\+(?P<buildId>build\.[0-9]+)(-sources)?(-dev)?\.jar'
+      name: name
+      layers: [ mcVersion, modVersion, buildId ]
+    projects:
+      a:
+        name: A
+        icon: https://via.placeholder.com/500
+        bearer: abc123
+      b:
+        name: B
+        icon: https://via.placeholder.com/500
+        bearer: abc123
+      c:
+        name: C
+        icon: https://via.placeholder.com/500
+        bearer: abc123
+      d:
+        name: D
+        icon: https://via.placeholder.com/500
+        bearer: abc123
+      e:
+        name: E
+        icon: https://via.placeholder.com/500
+        bearer: abc123
+      f:
+        name: F
+        icon: https://via.placeholder.com/500
+        bearer: abc123
+      g:
+        name: G
+        icon: https://via.placeholder.com/500
+        bearer: abc123
+      h:
+        name: H
+        icon: https://via.placeholder.com/500
+        bearer: abc123
