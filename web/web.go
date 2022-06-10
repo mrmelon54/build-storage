@@ -2,26 +2,19 @@ package web
 
 import (
 	"build-storage/manager"
+	"build-storage/res"
 	"build-storage/structure"
 	"build-storage/utils"
 	_ "embed"
 	"encoding/gob"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
 	"html/template"
+	"io"
 	"log"
 	"net/http"
 	"os"
-	"sync"
-)
-
-var (
-	//go:embed pages/index.go.html
-	indexTemplate string
-	//go:embed pages/group.go.html
-	groupTemplate string
 )
 
 type buildServiceKeyType int
@@ -34,17 +27,16 @@ const (
 	KeyRefreshToken
 )
 
-var sessionStore = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
-
 type Module struct {
 	sessionStore *sessions.CookieStore
 	oauthConfig  *oauth2.Config
-	stateManager StateManager
+	stateManager *utils.StateManager
 	configYml    structure.ConfigYaml
 	buildManager *manager.BuildManager
 }
 
 func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Module {
+	sessionStore := sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 	return &Module{
 		oauthConfig: &oauth2.Config{
 			ClientID:     os.Getenv("MELON_CLIENT_ID"),
@@ -56,58 +48,59 @@ func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Mo
 			},
 			RedirectURL: os.Getenv("MELON_REDIRECT_URL"),
 		},
-		stateManager: StateManager{&sync.RWMutex{}, make(map[uuid.UUID]*utils.State)},
+		stateManager: utils.NewStateManager(sessionStore),
 		configYml:    configYml,
 		buildManager: buildManager,
 	}
 }
 
-func SetupModle(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *http.Server {
+func (m *Module) SetupModule() *http.Server {
 	gob.Register(new(buildServiceKeyType))
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
 		a := struct {
 			Title  string
-			Groups map[string]string
+			Groups map[string]structure.GroupYaml
 		}{
-			Title:  configYml.Title,
-			Groups: make(map[string]string),
-		}
-		groups := buildManager.GetAllGroups()
-		for k, g := range groups {
-			a.Groups[k] = g.Name
+			Title:  m.configYml.Title,
+			Groups: m.buildManager.GetAllGroups(),
 		}
 
-		err := fillTemplate(rw, indexTemplate, a)
+		err := fillTemplate(rw, res.GetTemplateFileByName("index.go.html"), a)
 		if err != nil {
 			log.Println(err)
 			http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
 		}
 	}).Methods(http.MethodGet)
+	router.HandleFunc("/assets/{name}.css", func(rw http.ResponseWriter, req *http.Request) {
+		vars := mux.Vars(req)
+		open, err := res.GetAssetsFilesystem().Open(vars["name"] + ".css")
+		if err != nil {
+			http.NotFound(rw, req)
+			return
+		}
+		rw.Header().Set("Content-Type", "text/css")
+		_, _ = io.Copy(rw, open)
+	})
 	router.HandleFunc("/login", func(rw http.ResponseWriter, req *http.Request) {
 
 	})
 	router.HandleFunc("/{group}", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
-		group, ok := buildManager.GetGroup(vars["group"])
+		group, ok := m.buildManager.GetGroup(vars["group"])
 		if ok {
 			a := struct {
 				Title     string
 				GroupCode string
 				Group     structure.GroupYaml
-				Projects  map[string]string
 			}{
-				Title:     configYml.Title,
+				Title:     m.configYml.Title,
 				GroupCode: vars["group"],
 				Group:     group,
-				Projects:  make(map[string]string),
-			}
-			for k, p := range group.Projects {
-				a.Projects[k] = p.Name
 			}
 
-			err := fillTemplate(rw, groupTemplate, a)
+			err := fillTemplate(rw, res.GetTemplateFileByName("group.go.html"), a)
 			if err != nil {
 				log.Println(err)
 				http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
@@ -116,9 +109,43 @@ func SetupModle(configYml structure.ConfigYaml, buildManager *manager.BuildManag
 			http.Error(rw, "404 Not Found", http.StatusNotFound)
 		}
 	}).Methods(http.MethodGet)
+	router.HandleFunc("/{group}/{project}", func(rw http.ResponseWriter, req *http.Request) {
+		vars := mux.Vars(req)
+		group, ok := m.buildManager.GetGroup(vars["group"])
+		if ok {
+			project, ok := group.Projects[vars["project"]]
+			if ok {
+				a := struct {
+					Title       string
+					GroupCode   string
+					ProjectCode string
+					Group       structure.GroupYaml
+					Project     structure.ProjectYaml
+					Files       []string
+				}{
+					Title:       m.configYml.Title,
+					GroupCode:   vars["group"],
+					ProjectCode: vars["project"],
+					Group:       group,
+					Project:     project,
+					Files:       []string{"file1.jar"},
+				}
+
+				err := fillTemplate(rw, res.GetTemplateFileByName("project.go.html"), a)
+				if err != nil {
+					log.Println(err)
+					http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
+				}
+			} else {
+				http.Error(rw, "404 Not Found", http.StatusNotFound)
+			}
+		} else {
+			http.Error(rw, "404 Not Found", http.StatusNotFound)
+		}
+	}).Methods(http.MethodGet)
 
 	httpServer := &http.Server{
-		Addr:    configYml.Listen.Web,
+		Addr:    m.configYml.Listen.Web,
 		Handler: router,
 	}
 	return httpServer
@@ -131,33 +158,4 @@ func fillTemplate(rw http.ResponseWriter, text string, data any) error {
 		return err
 	}
 	return parse.Execute(rw, data)
-}
-
-type StateManager struct {
-	MSync  *sync.RWMutex
-	States map[uuid.UUID]*utils.State
-}
-
-func (m *StateManager) sessionWrapper(cb func(http.ResponseWriter, *http.Request, *utils.State)) func(rw http.ResponseWriter, req *http.Request) {
-	return func(rw http.ResponseWriter, req *http.Request) {
-		session, _ := sessionStore.Get(req, "build-storage-session")
-		if a, ok := session.Values["session-key"]; ok {
-			if b, ok := a.(uuid.UUID); ok {
-				m.MSync.RLock()
-				c, ok := m.States[b]
-				m.MSync.RUnlock()
-				if ok {
-					cb(rw, req, c)
-					return
-				}
-			}
-		}
-		u := utils.NewState()
-		m.MSync.Lock()
-		m.States[u.Uuid] = u
-		m.MSync.Unlock()
-		session.Values["session-key"] = u.Uuid
-		_ = session.Save(req, rw)
-		cb(rw, req, u)
-	}
 }

@@ -12,8 +12,9 @@ build:
 	mkdir -p dist/
 	${COMP_BIN} build -o "${BIN}" -ldflags="${LD_FLAGS}" ./cmd/build-storage
 
-run:
-	make build
+dev:
+	mkdir -p dist/
+	${COMP_BIN} build -tags debug -o "${BIN}" -ldflags="${LD_FLAGS}" ./cmd/build-storage
 	./${BIN}
 
 test:

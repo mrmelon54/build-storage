@@ -1,0 +1,24 @@
+<html lang="en-GB">
+<head>
+    <title>{{ .Group.Name }} | {{ .Title }}</title>
+    <link rel="stylesheet" href="/assets/style.css"/>
+</head>
+<body>
+<header>
+    <h1>{{ .Title }} / {{ .Group.Name }}</h1>
+</header>
+<section>
+    <h2>Projects</h2>
+    <div class="card-view">
+        {{ range $k, $v := .Group.Projects }}
+            <a href="/{{ $.GroupCode }}/{{ $k }}">
+                <div class="card">
+                    <h3>{{ $v.Name }}</h3>
+                    <img src="{{ $v.Icon }}" alt="Missing Project Icon"/>
+                </div>
+            </a>
+        {{ end }}
+    </div>
+</section>
+</body>
+</html>

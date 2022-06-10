@@ -64,7 +64,7 @@ func main() {
 	}
 
 	buildManager := manager.New(baseDir, configYml)
-	webServer := web.SetupWebServer(configYml, buildManager)
+	webServer := web.New(configYml, buildManager).SetupModule()
 	apiServer := api.SetupApiServer(configYml, buildManager)
 	runHttpServer(apiServer, "Web Server shutdown successfully")
 	runHttpServer(webServer, "API Server shutdown successfully")

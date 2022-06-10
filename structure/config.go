@@ -16,6 +16,7 @@ type ListenYaml struct {
 
 type GroupYaml struct {
 	Name     string                 `yaml:"name"`
+	Icon     string                 `yaml:"icon"`
 	Parser   ParserYaml             `yaml:"parser"`
 	Projects map[string]ProjectYaml `yaml:"projects"`
 }
