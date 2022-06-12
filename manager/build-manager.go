@@ -1,10 +1,12 @@
 package manager
 
 import (
-	"build-storage/structure"
+	"github.com/MrMelon54/build-storage/structure"
 	"io"
+	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 )
 
 type BuildManager struct {
@@ -37,4 +39,48 @@ func (b *BuildManager) GetAllGroups() map[string]structure.GroupYaml {
 func (b *BuildManager) GetGroup(name string) (structure.GroupYaml, bool) {
 	group, ok := b.configYml.Groups[name]
 	return group, ok
+}
+
+func (b *BuildManager) Open(groupName, projectName string, projectLayers []string) (fs.File, error) {
+	join := path.Join(b.baseDir, b.configYml.BuildDir, groupName, projectName, path.Join(projectLayers...))
+	return os.Open(join)
+}
+
+func (b *BuildManager) ListAllFiles(groupName, projectName string) ([]string, error) {
+	return b.ListSpecificFiles(groupName, projectName, []string{})
+}
+
+func (b *BuildManager) ListSpecificFiles(groupName, projectName string, projectLayers []string) ([]string, error) {
+	join := path.Join(b.baseDir, b.configYml.BuildDir, groupName, projectName, path.Join(projectLayers...))
+	a := make([]string, 0)
+	err := filepath.WalkDir(join, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		a = append(a, p)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+
+func (b *BuildManager) ListSingleLayer(groupName, projectName string, projectLayers []string) ([]string, error) {
+	join := path.Join(b.baseDir, b.configYml.BuildDir, groupName, projectName, path.Join(projectLayers...))
+	dir, err := os.ReadDir(join)
+	if err != nil {
+		return nil, err
+	}
+
+	a := make([]string, len(dir))
+	for _, entry := range dir {
+		if entry.IsDir() {
+			a = append(a, entry.Name())
+		}
+	}
+	return a, nil
 }

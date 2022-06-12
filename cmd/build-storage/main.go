@@ -1,11 +1,11 @@
 package main
 
 import (
-	"build-storage/api"
-	"build-storage/manager"
-	"build-storage/structure"
-	"build-storage/web"
 	"fmt"
+	"github.com/MrMelon54/build-storage/api"
+	"github.com/MrMelon54/build-storage/manager"
+	"github.com/MrMelon54/build-storage/structure"
+	"github.com/MrMelon54/build-storage/web"
 	"github.com/joho/godotenv"
 	"gopkg.in/yaml.v3"
 	"log"

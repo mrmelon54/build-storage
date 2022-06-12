@@ -1,6 +1,6 @@
 package structure
 
-import "build-storage/utils"
+import "github.com/MrMelon54/build-storage/utils"
 
 type ConfigYaml struct {
 	Title    string               `yaml:"title"`
@@ -27,6 +27,7 @@ type LoginYaml struct {
 type GroupYaml struct {
 	Name     string                 `yaml:"name"`
 	Icon     string                 `yaml:"icon"`
+	Uploader string                 `yaml:"uploader"`
 	Parser   ParserYaml             `yaml:"parser"`
 	Projects map[string]ProjectYaml `yaml:"projects"`
 }

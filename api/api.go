@@ -2,9 +2,9 @@ package api
 
 import (
 	"archive/tar"
-	"build-storage/manager"
-	"build-storage/structure"
 	"compress/gzip"
+	"github.com/MrMelon54/build-storage/manager"
+	"github.com/MrMelon54/build-storage/structure"
 	"github.com/gorilla/mux"
 	"io"
 	"log"
@@ -79,25 +79,11 @@ func handleValidUpload(rw http.ResponseWriter, req *http.Request, groupYml struc
 		switch header.Typeflag {
 		case tar.TypeReg:
 			b := path.Base(header.Name)
-			_, layers := getUploadMeta(b, groupYml.Parser)
+			_, layers := structure.GetUploadMeta(b, groupYml.Parser)
 			err = buildManager.Upload(b, tarReader, groupName, projectName, layers)
 			if err != nil {
 				log.Printf("Failed to upload artifact '%s' from '%s'\n", header.Name, uploadHeader.Filename)
 			}
 		}
 	}
-}
-
-func getUploadMeta(name string, parser structure.ParserYaml) (projectName string, layers []string) {
-	matches := parser.Exp.FindStringSubmatch(name)
-	if len(matches) < 1 {
-		log.Printf("Match failed: '%s' with '%s'\n", name, parser.Exp)
-		return
-	}
-	projectName = matches[parser.Exp.SubexpIndex(parser.Name)]
-	layers = make([]string, len(parser.Layers))
-	for i := range parser.Layers {
-		layers[i] = matches[parser.Exp.SubexpIndex(parser.Layers[i])]
-	}
-	return
 }

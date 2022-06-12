@@ -1,12 +1,15 @@
 package web
 
 import (
-	"build-storage/manager"
-	"build-storage/res"
-	"build-storage/structure"
-	"build-storage/utils"
 	_ "embed"
 	"encoding/gob"
+	"fmt"
+	"github.com/MrMelon54/build-storage/manager"
+	"github.com/MrMelon54/build-storage/res"
+	"github.com/MrMelon54/build-storage/structure"
+	"github.com/MrMelon54/build-storage/utils"
+	"github.com/MrMelon54/build-storage/web/uploader"
+	"github.com/MrMelon54/build-storage/web/uploader/modrinth"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
@@ -14,6 +17,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"path"
+	"strings"
 )
 
 type buildServiceKeyType int
@@ -26,15 +31,26 @@ const (
 	KeyRefreshToken
 )
 
+var uploaderArray = []uploader.Uploader{
+	&modrinth.UploadToModrinth{},
+}
+
 type Module struct {
 	sessionStore *sessions.CookieStore
 	oauthConfig  *oauth2.Config
 	stateManager *utils.StateManager
 	configYml    structure.ConfigYaml
 	buildManager *manager.BuildManager
+	uploaderMap  map[string]uploader.Uploader
 }
 
 func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Module {
+	uploaderMap := make(map[string]uploader.Uploader)
+	for _, i := range uploaderArray {
+		uploaderMap[i.Name()] = i
+		i.Setup(configYml, buildManager)
+	}
+
 	sessionStore := sessions.NewCookieStore([]byte(configYml.Login.SessionKey))
 	return &Module{
 		oauthConfig: &oauth2.Config{
@@ -50,6 +66,7 @@ func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Mo
 		stateManager: utils.NewStateManager(sessionStore),
 		configYml:    configYml,
 		buildManager: buildManager,
+		uploaderMap:  uploaderMap,
 	}
 }
 
@@ -58,20 +75,27 @@ func (m *Module) SetupModule() *http.Server {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
-		a := struct {
-			Title  string
-			Groups map[string]structure.GroupYaml
-		}{
-			Title:  m.configYml.Title,
-			Groups: m.buildManager.GetAllGroups(),
+		a := make(map[string]structure.CardItem)
+		for s := range m.configYml.Groups {
+			a[s] = structure.CardItem{
+				Name: m.configYml.Groups[s].Name,
+				Icon: m.configYml.Groups[s].Icon,
+			}
 		}
 
-		err := fillTemplate(rw, res.GetTemplateFileByName("index.go.html"), a)
+		err := fillTemplate(rw, res.GetTemplateFileByName("card-view.go.html"), structure.CardView{
+			Title:    m.configYml.Title,
+			PagePath: m.configYml.Title,
+			PageName: "Groups",
+			BasePath: "",
+			Cards:    a,
+		})
 		if err != nil {
 			log.Println(err)
 			http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
 		}
 	}).Methods(http.MethodGet)
+
 	router.HandleFunc("/assets/{name}.css", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
 		open, err := res.GetAssetsFilesystem().Open(vars["name"] + ".css")
@@ -82,24 +106,29 @@ func (m *Module) SetupModule() *http.Server {
 		rw.Header().Set("Content-Type", "text/css")
 		_, _ = io.Copy(rw, open)
 	})
+
 	router.HandleFunc("/login", func(rw http.ResponseWriter, req *http.Request) {
 
 	})
+
 	router.HandleFunc("/{group}", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
-		group, ok := m.buildManager.GetGroup(vars["group"])
-		if ok {
-			a := struct {
-				Title     string
-				GroupCode string
-				Group     structure.GroupYaml
-			}{
-				Title:     m.configYml.Title,
-				GroupCode: vars["group"],
-				Group:     group,
+		if group, ok := m.buildManager.GetGroup(vars["group"]); ok {
+			a := make(map[string]structure.CardItem)
+			for s := range group.Projects {
+				a[s] = structure.CardItem{
+					Name: group.Projects[s].Name,
+					Icon: group.Projects[s].Icon,
+				}
 			}
 
-			err := fillTemplate(rw, res.GetTemplateFileByName("group.go.html"), a)
+			err := fillTemplate(rw, res.GetTemplateFileByName("card-view.go.html"), structure.CardView{
+				Title:    fmt.Sprintf("%s | %s", group.Name, m.configYml.Title),
+				PagePath: fmt.Sprintf("%s / %s", m.configYml.Title, group.Name),
+				PageName: "Projects",
+				BasePath: fmt.Sprintf("/%s", vars["group"]),
+				Cards:    a,
+			})
 			if err != nil {
 				log.Println(err)
 				http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
@@ -108,29 +137,24 @@ func (m *Module) SetupModule() *http.Server {
 			http.Error(rw, "404 Not Found", http.StatusNotFound)
 		}
 	}).Methods(http.MethodGet)
+
 	router.HandleFunc("/{group}/{project}", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
-		group, ok := m.buildManager.GetGroup(vars["group"])
-		if ok {
-			project, ok := group.Projects[vars["project"]]
-			if ok {
-				a := struct {
-					Title       string
-					GroupCode   string
-					ProjectCode string
-					Group       structure.GroupYaml
-					Project     structure.ProjectYaml
-					Files       []string
-				}{
-					Title:       m.configYml.Title,
-					GroupCode:   vars["group"],
-					ProjectCode: vars["project"],
-					Group:       group,
-					Project:     project,
-					Files:       []string{"file1.jar"},
+		if group, ok := m.buildManager.GetGroup(vars["group"]); ok {
+			uploadMod, ok := m.uploaderMap[group.Uploader]
+			if !ok {
+				http.Error(rw, "500 Internal Server Error: Failed to load renderer for this group", http.StatusInternalServerError)
+				return
+			}
+
+			if project, ok := group.Projects[vars["project"]]; ok {
+				dataLayers := make([]string, len(group.Parser.Layers))
+				for i, v := range group.Parser.Layers {
+					dataLayers[i] = req.URL.Query().Get(strings.ToLower(v))
 				}
 
-				err := fillTemplate(rw, res.GetTemplateFileByName("project.go.html"), a)
+				a := uploadMod.DisplayProject(req, vars["group"], vars["project"], group, project, dataLayers)
+				err := fillTemplate(rw, res.GetTemplateFileByName("card-view.go.html"), a)
 				if err != nil {
 					log.Println(err)
 					http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
@@ -152,6 +176,11 @@ func (m *Module) SetupModule() *http.Server {
 
 func fillTemplate(rw http.ResponseWriter, text string, data any) error {
 	temp := template.New("index")
+	temp.Funcs(template.FuncMap{
+		"pathJoin": func(e1, e2 string) string {
+			return path.Join(e1, e2)
+		},
+	})
 	parse, err := temp.Parse(text)
 	if err != nil {
 		return err

@@ -1,4 +1,4 @@
-module build-storage
+module github.com/MrMelon54/build-storage
 
 go 1.18
 

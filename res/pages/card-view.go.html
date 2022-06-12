@@ -1,0 +1,28 @@
+<html lang="en-GB">
+<head>
+    <title>{{ .Title }}</title>
+    <link rel="stylesheet" href="/assets/style.css"/>
+</head>
+<body>
+<header>
+    <h1>{{ .PagePath }}</h1>
+</header>
+<section>
+    {{ range $k, $v := .Sections }}
+        <h2>{{ .Name }}</h2>
+        <div class="card-view">
+            {{ range $k, $v := .Cards }}
+                <a href="{{ pathJoin $.BasePath $k }}">
+                    <div class="card">
+                        <h3>{{ $v.Name }}</h3>
+                        {{ if ne $v.Icon "" }}
+                            <img src="{{ $v.Icon }}" alt="Missing Icon"/>
+                        {{ end }}
+                    </div>
+                </a>
+            {{ end }}
+        </div>
+    {{ end }}
+</section>
+</body>
+</html>
