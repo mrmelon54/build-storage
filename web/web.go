@@ -75,12 +75,12 @@ func (m *Module) SetupModule() *http.Server {
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
-		a := make(map[string]structure.CardItem)
+		a := make([]structure.CardItem, 0)
 		for s := range m.configYml.Groups {
-			a[s] = structure.CardItem{
+			a = append(a, structure.CardItem{
 				Name: m.configYml.Groups[s].Name,
 				Icon: m.configYml.Groups[s].Icon,
-			}
+			})
 		}
 
 		b := structure.CardSection{
@@ -92,7 +92,7 @@ func (m *Module) SetupModule() *http.Server {
 			Title:    m.configYml.Title,
 			PagePath: m.configYml.Title,
 			BasePath: "",
-			Sections: map[string]structure.CardSection{"groups": b},
+			Sections: []structure.CardSection{b},
 		})
 		if err != nil {
 			log.Println(err)
@@ -118,12 +118,12 @@ func (m *Module) SetupModule() *http.Server {
 	router.HandleFunc("/{group}", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
 		if group, ok := m.buildManager.GetGroup(vars["group"]); ok {
-			a := make(map[string]structure.CardItem)
+			a := make([]structure.CardItem, 0)
 			for s := range group.Projects {
-				a[s] = structure.CardItem{
+				a = append(a, structure.CardItem{
 					Name: group.Projects[s].Name,
 					Icon: group.Projects[s].Icon,
-				}
+				})
 			}
 
 			b := structure.CardSection{
@@ -135,7 +135,7 @@ func (m *Module) SetupModule() *http.Server {
 				Title:    fmt.Sprintf("%s | %s", group.Name, m.configYml.Title),
 				PagePath: fmt.Sprintf("%s / %s", m.configYml.Title, group.Name),
 				BasePath: fmt.Sprintf("/%s", vars["group"]),
-				Sections: map[string]structure.CardSection{"projects": b},
+				Sections: []structure.CardSection{b},
 			})
 			if err != nil {
 				log.Println(err)

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
 	"strings"
 )
 
@@ -31,7 +32,7 @@ func (u *UploadToModrinth) DisplayProject(_ *http.Request, groupName string, pro
 	}
 
 	layers = removeEmptyLayers(layers)
-	cardSections := make(map[string]structure.CardSection)
+	cardSections := make([]structure.CardSection, 0)
 	switch len(layers) {
 	case 0:
 		for _, file := range files {
@@ -41,9 +42,12 @@ func (u *UploadToModrinth) DisplayProject(_ *http.Request, groupName string, pro
 				log.Println(err)
 				return structure.CardView{Title: "Failed to load builds"}
 			}
-			cardItems := make(map[string]structure.CardItem)
+			cardItems := make([]structure.CardItem, 0)
 			for i := range sFiles {
 				f2 := path.Base(sFiles[i])
+				if group.Parser.IgnoreFiles.MatchString(f2) {
+					continue
+				}
 
 				values := url.Values{}
 				for i := 0; i <= len(layers); i++ {
@@ -57,14 +61,22 @@ func (u *UploadToModrinth) DisplayProject(_ *http.Request, groupName string, pro
 					values.Set(strings.ToLower(group.Parser.Layers[i]), layer)
 				}
 
-				cardItems[f2] = structure.CardItem{Name: f2}
+				cardItems = append(cardItems, structure.CardItem{Name: f2})
 			}
-			cardSections[f] = structure.CardSection{
+
+			sort.SliceStable(cardItems, func(i, j int) bool {
+				return cardItems[i].Name > cardItems[j].Name
+			})
+			cardSections = append(cardSections, structure.CardSection{
 				Name:  f,
 				Cards: cardItems,
-			}
+			})
 		}
 	}
+
+	sort.SliceStable(cardSections, func(i, j int) bool {
+		return cardSections[i].Name > cardSections[j].Name
+	})
 
 	return structure.CardView{
 		Title:    fmt.Sprintf("%s | %s | %s", project.Name, group.Name, u.configYml.Title),

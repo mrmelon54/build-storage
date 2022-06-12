@@ -33,9 +33,10 @@ type GroupYaml struct {
 }
 
 type ParserYaml struct {
-	Exp    *utils.RegexpYaml `yaml:"exp"`
-	Name   string            `yaml:"name"`
-	Layers []string          `yaml:"layers"`
+	Exp         *utils.RegexpYaml `yaml:"exp"`
+	IgnoreFiles *utils.RegexpYaml `yaml:"ignore-files"`
+	Name        string            `yaml:"name"`
+	Layers      []string          `yaml:"layers"`
 }
 
 type ProjectYaml struct {

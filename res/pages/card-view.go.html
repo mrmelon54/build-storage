@@ -8,15 +8,15 @@
     <h1>{{ .PagePath }}</h1>
 </header>
 <section>
-    {{ range $k, $v := .Sections }}
-        <h2>{{ .Name }}</h2>
+    {{ range $sec := .Sections }}
+        <h2>{{ $sec.Name }}</h2>
         <div class="card-view">
-            {{ range $k, $v := .Cards }}
-                <a href="{{ pathJoin $.BasePath $k }}">
+            {{ range $car := $sec.Cards }}
+                <a href="{{ pathJoin $.BasePath $car.Address }}">
                     <div class="card">
-                        <h3>{{ $v.Name }}</h3>
-                        {{ if ne $v.Icon "" }}
-                            <img src="{{ $v.Icon }}" alt="Missing Icon"/>
+                        <h3>{{ $car.Name }}</h3>
+                        {{ if ne $car.Icon "" }}
+                            <img src="{{ $car.Icon }}" alt="Missing Icon"/>
                         {{ end }}
                     </div>
                 </a>

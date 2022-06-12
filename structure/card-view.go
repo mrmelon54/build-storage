@@ -4,15 +4,16 @@ type CardView struct {
 	Title    string
 	PagePath string
 	BasePath string
-	Sections map[string]CardSection
+	Sections []CardSection
 }
 
 type CardSection struct {
 	Name  string
-	Cards map[string]CardItem
+	Cards []CardItem
 }
 
 type CardItem struct {
-	Name string
-	Icon string
+	Name    string
+	Icon    string
+	Address string
 }
