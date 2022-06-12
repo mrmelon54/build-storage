@@ -18,6 +18,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"sort"
 	"strings"
 )
 
@@ -78,10 +79,15 @@ func (m *Module) SetupModule() *http.Server {
 		a := make([]structure.CardItem, 0)
 		for s := range m.configYml.Groups {
 			a = append(a, structure.CardItem{
-				Name: m.configYml.Groups[s].Name,
-				Icon: m.configYml.Groups[s].Icon,
+				Name:    m.configYml.Groups[s].Name,
+				Icon:    m.configYml.Groups[s].Icon,
+				Address: s,
 			})
 		}
+
+		sort.SliceStable(a, func(i, j int) bool {
+			return a[i].Name < a[j].Name
+		})
 
 		b := structure.CardSection{
 			Name:  "Groups",
@@ -121,10 +127,15 @@ func (m *Module) SetupModule() *http.Server {
 			a := make([]structure.CardItem, 0)
 			for s := range group.Projects {
 				a = append(a, structure.CardItem{
-					Name: group.Projects[s].Name,
-					Icon: group.Projects[s].Icon,
+					Name:    group.Projects[s].Name,
+					Icon:    group.Projects[s].Icon,
+					Address: s,
 				})
 			}
+
+			sort.SliceStable(a, func(i, j int) bool {
+				return a[i].Name < a[j].Name
+			})
 
 			b := structure.CardSection{
 				Name:  "Projects",
