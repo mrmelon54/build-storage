@@ -83,12 +83,16 @@ func (m *Module) SetupModule() *http.Server {
 			}
 		}
 
+		b := structure.CardSection{
+			Name:  "Groups",
+			Cards: a,
+		}
+
 		err := fillTemplate(rw, res.GetTemplateFileByName("card-view.go.html"), structure.CardView{
 			Title:    m.configYml.Title,
 			PagePath: m.configYml.Title,
-			PageName: "Groups",
 			BasePath: "",
-			Cards:    a,
+			Sections: map[string]structure.CardSection{"groups": b},
 		})
 		if err != nil {
 			log.Println(err)
@@ -122,12 +126,16 @@ func (m *Module) SetupModule() *http.Server {
 				}
 			}
 
+			b := structure.CardSection{
+				Name:  "Projects",
+				Cards: a,
+			}
+
 			err := fillTemplate(rw, res.GetTemplateFileByName("card-view.go.html"), structure.CardView{
 				Title:    fmt.Sprintf("%s | %s", group.Name, m.configYml.Title),
 				PagePath: fmt.Sprintf("%s / %s", m.configYml.Title, group.Name),
-				PageName: "Projects",
 				BasePath: fmt.Sprintf("/%s", vars["group"]),
-				Cards:    a,
+				Sections: map[string]structure.CardSection{"projects": b},
 			})
 			if err != nil {
 				log.Println(err)

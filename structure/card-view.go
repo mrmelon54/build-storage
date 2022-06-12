@@ -3,7 +3,6 @@ package structure
 type CardView struct {
 	Title    string
 	PagePath string
-	PageName string
 	BasePath string
 	Sections map[string]CardSection
 }

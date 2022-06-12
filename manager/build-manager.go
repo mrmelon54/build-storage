@@ -4,6 +4,7 @@ import (
 	"github.com/MrMelon54/build-storage/structure"
 	"io"
 	"io/fs"
+	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -69,18 +70,11 @@ func (b *BuildManager) ListSpecificFiles(groupName, projectName string, projectL
 	return a, nil
 }
 
-func (b *BuildManager) ListSingleLayer(groupName, projectName string, projectLayers []string) ([]string, error) {
+func (b *BuildManager) ListSingleLayer(groupName, projectName string, projectLayers []string) ([]fs.FileInfo, error) {
 	join := path.Join(b.baseDir, b.configYml.BuildDir, groupName, projectName, path.Join(projectLayers...))
-	dir, err := os.ReadDir(join)
+	dir, err := ioutil.ReadDir(join)
 	if err != nil {
 		return nil, err
 	}
-
-	a := make([]string, len(dir))
-	for _, entry := range dir {
-		if entry.IsDir() {
-			a = append(a, entry.Name())
-		}
-	}
-	return a, nil
+	return dir, nil
 }
