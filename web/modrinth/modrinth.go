@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"github.com/MrMelon54/build-storage/manager"
 	"github.com/MrMelon54/build-storage/structure"
+	"github.com/MrMelon54/build-storage/utils"
+	"github.com/MrMelon54/build-storage/web"
 	"log"
 	"net/http"
 	"net/url"
@@ -12,14 +14,20 @@ import (
 	"strings"
 )
 
+type modrinthServiceKeyType int
+
+const KeyModrinthClient = modrinthServiceKeyType(iota)
+
 type UploadToModrinth struct {
+	module       *web.Module
 	configYml    structure.ConfigYaml
 	buildManager *manager.BuildManager
 }
 
 func (u *UploadToModrinth) Name() string { return "modrinth" }
 
-func (u *UploadToModrinth) Setup(configYml structure.ConfigYaml, buildManager *manager.BuildManager) {
+func (u *UploadToModrinth) Setup(module *web.Module, configYml structure.ConfigYaml, buildManager *manager.BuildManager) {
+	u.module = module
 	u.configYml = configYml
 	u.buildManager = buildManager
 }
@@ -98,4 +106,8 @@ func removeEmptyLayers(layers []string) []string {
 		return layers[:i]
 	}
 	return layers[:]
+}
+
+func (u *UploadToModrinth) getClient(cb func(http.ResponseWriter, *http.Request, *utils.State, *VersionUploader)) func(rw http.ResponseWriter, req *http.Request) {
+	return web.GetWebClient[modrinthServiceKeyType, VersionUploader](u.module, KeyModrinthClient, cb)
 }

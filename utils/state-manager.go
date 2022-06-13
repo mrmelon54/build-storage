@@ -21,7 +21,7 @@ func NewStateManager(sessionStore sessions.Store) *StateManager {
 	}
 }
 
-func (m *StateManager) sessionWrapper(cb func(http.ResponseWriter, *http.Request, *State)) func(rw http.ResponseWriter, req *http.Request) {
+func (m *StateManager) SessionWrapper(cb func(http.ResponseWriter, *http.Request, *State)) func(rw http.ResponseWriter, req *http.Request) {
 	return func(rw http.ResponseWriter, req *http.Request) {
 		session, _ := m.Store.Get(req, "build-storage-session")
 		if a, ok := session.Values["session-key"]; ok {

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	_ "embed"
 	"encoding/gob"
 	"fmt"
@@ -8,8 +9,8 @@ import (
 	"github.com/MrMelon54/build-storage/res"
 	"github.com/MrMelon54/build-storage/structure"
 	"github.com/MrMelon54/build-storage/utils"
-	"github.com/MrMelon54/build-storage/web/uploader"
-	"github.com/MrMelon54/build-storage/web/uploader/modrinth"
+	"github.com/MrMelon54/build-storage/web/modrinth"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"golang.org/x/oauth2"
@@ -25,36 +26,29 @@ import (
 type buildServiceKeyType int
 
 const (
-	KeyOauthClient = buildServiceKeyType(iota)
-	KeyUser
+	KeyUser = buildServiceKeyType(iota)
 	KeyState
 	KeyAccessToken
 	KeyRefreshToken
 )
 
-var uploaderArray = []uploader.Uploader{
+var uploaderArray = []Uploader{
 	&modrinth.UploadToModrinth{},
 }
 
 type Module struct {
 	sessionStore *sessions.CookieStore
-	oauthConfig  *oauth2.Config
+	oauthClient  *oauth2.Config
 	stateManager *utils.StateManager
 	configYml    structure.ConfigYaml
 	buildManager *manager.BuildManager
-	uploaderMap  map[string]uploader.Uploader
+	uploaderMap  map[string]Uploader
 }
 
 func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Module {
-	uploaderMap := make(map[string]uploader.Uploader)
-	for _, i := range uploaderArray {
-		uploaderMap[i.Name()] = i
-		i.Setup(configYml, buildManager)
-	}
-
 	sessionStore := sessions.NewCookieStore([]byte(configYml.Login.SessionKey))
-	return &Module{
-		oauthConfig: &oauth2.Config{
+	m := &Module{
+		oauthClient: &oauth2.Config{
 			ClientID:     configYml.Login.ClientId,
 			ClientSecret: configYml.Login.ClientSecret,
 			Scopes:       []string{"openid"},
@@ -67,8 +61,14 @@ func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Mo
 		stateManager: utils.NewStateManager(sessionStore),
 		configYml:    configYml,
 		buildManager: buildManager,
-		uploaderMap:  uploaderMap,
 	}
+	uploaderMap := make(map[string]Uploader)
+	for _, i := range uploaderArray {
+		uploaderMap[i.Name()] = i
+		i.Setup(m, configYml, buildManager)
+	}
+	m.uploaderMap = uploaderMap
+	return m
 }
 
 func (m *Module) SetupModule() *http.Server {
@@ -117,9 +117,7 @@ func (m *Module) SetupModule() *http.Server {
 		_, _ = io.Copy(rw, open)
 	})
 
-	router.HandleFunc("/login", func(rw http.ResponseWriter, req *http.Request) {
-
-	})
+	router.HandleFunc("/login", m.stateManager.SessionWrapper(m.loginPage))
 
 	router.HandleFunc("/{group}", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
@@ -205,4 +203,45 @@ func fillTemplate(rw http.ResponseWriter, text string, data any) error {
 		return err
 	}
 	return parse.Execute(rw, data)
+}
+
+func (m *Module) loginPage(rw http.ResponseWriter, req *http.Request, state *utils.State) {
+	if myUser, ok := utils.GetStateValue[*string](state, KeyUser); ok {
+		if myUser != nil {
+			http.Redirect(rw, req, "/", http.StatusTemporaryRedirect)
+			return
+		}
+	}
+	if flowState, ok := utils.GetStateValue[uuid.UUID](state, KeyState); ok {
+		q := req.URL.Query()
+		if q.Has("code") && q.Has("state") {
+			if q.Get("state") == flowState.String() {
+				exchange, err := m.oauthClient.Exchange(context.Background(), q.Get("code"))
+				if err != nil {
+					fmt.Println("Exchange token error:", err)
+					return
+				}
+
+				state.Put(KeyAccessToken, exchange.AccessToken)
+				state.Put(KeyRefreshToken, exchange.RefreshToken)
+				http.Redirect(rw, req, "/", http.StatusTemporaryRedirect)
+				return
+			}
+			http.Error(rw, "OAuth flow state doesn't match\n", http.StatusBadRequest)
+			return
+		}
+	}
+	flowState := uuid.New()
+	state.Put(KeyState, flowState)
+	http.Redirect(rw, req, m.oauthClient.AuthCodeURL(flowState.String(), oauth2.AccessTypeOffline), http.StatusTemporaryRedirect)
+}
+
+func GetWebClient[T any, V any](m *Module, clientKey T, cb func(http.ResponseWriter, *http.Request, *utils.State, *V)) func(rw http.ResponseWriter, req *http.Request) {
+	return m.stateManager.SessionWrapper(func(rw http.ResponseWriter, req *http.Request, state *utils.State) {
+		if v, ok := utils.GetStateValue[*V](state, clientKey); ok && v != nil {
+			cb(rw, req, state, v)
+			return
+		}
+		http.Redirect(rw, req, "/login", http.StatusTemporaryRedirect)
+	})
 }

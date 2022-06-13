@@ -1,4 +1,4 @@
-package uploader
+package web
 
 import (
 	"github.com/MrMelon54/build-storage/manager"
@@ -8,6 +8,6 @@ import (
 
 type Uploader interface {
 	Name() string
-	Setup(structure.ConfigYaml, *manager.BuildManager)
+	Setup(*Module, structure.ConfigYaml, *manager.BuildManager)
 	DisplayProject(*http.Request, string, string, structure.GroupYaml, structure.ProjectYaml, []string) structure.CardView
 }
