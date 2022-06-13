@@ -25,11 +25,12 @@ type LoginYaml struct {
 }
 
 type GroupYaml struct {
-	Name     string                 `yaml:"name"`
-	Icon     string                 `yaml:"icon"`
-	Uploader string                 `yaml:"uploader"`
-	Parser   ParserYaml             `yaml:"parser"`
-	Projects map[string]ProjectYaml `yaml:"projects"`
+	Name        string                 `yaml:"name"`
+	Icon        string                 `yaml:"icon"`
+	Uploader    string                 `yaml:"uploader"`
+	UploadToken string                 `yaml:"upload-token"`
+	Parser      ParserYaml             `yaml:"parser"`
+	Projects    map[string]ProjectYaml `yaml:"projects"`
 }
 
 type ParserYaml struct {
