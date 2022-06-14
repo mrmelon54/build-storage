@@ -21,16 +21,20 @@ type LoginYaml struct {
 	ClientSecret string `yaml:"client-secret"`
 	AuthorizeUrl string `yaml:"authorize-url"`
 	TokenUrl     string `yaml:"token-url"`
+	ResourceUrl  string `yaml:"resource-url"`
+	OriginUrl    string `yaml:"origin-url"`
 	RedirectUrl  string `yaml:"redirect-url"`
+	Owner        string `yaml:"owner"`
 }
 
 type GroupYaml struct {
-	Name        string                 `yaml:"name"`
-	Icon        string                 `yaml:"icon"`
-	Uploader    string                 `yaml:"uploader"`
-	UploadToken string                 `yaml:"upload-token"`
-	Parser      ParserYaml             `yaml:"parser"`
-	Projects    map[string]ProjectYaml `yaml:"projects"`
+	Name           string                 `yaml:"name"`
+	Icon           string                 `yaml:"icon"`
+	Uploader       string                 `yaml:"uploader"`
+	UploadEndpoint string                 `yaml:"upload-endpoint"`
+	UploadToken    string                 `yaml:"upload-token"`
+	Parser         ParserYaml             `yaml:"parser"`
+	Projects       map[string]ProjectYaml `yaml:"projects"`
 }
 
 type ParserYaml struct {
@@ -41,6 +45,7 @@ type ParserYaml struct {
 }
 
 type ProjectYaml struct {
+	Id     string `yaml:"id"`
 	Name   string `yaml:"name"`
 	Icon   string `yaml:"icon"`
 	Bearer string `yaml:"bearer"`

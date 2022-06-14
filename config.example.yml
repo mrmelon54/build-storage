@@ -10,46 +10,61 @@ login:
   client-secret: ''
   authorize-url: https://example.com/oauth/authorize # url to authorize oauth login
   token-url: https://example.com/oauth/token # url to get oauth token
+  resource-url: https://id.example.com/oauth/user/info # url to get user info resource
   redirect-url: https://example.com/login # url to redirect back to the build storage service
+  origin-url: https://example.com
+  owner: 1 # value of sub field from user info resource for the owner user
 buildDir: builds
 groups:
   mc-mod:
     name: Minecraft Mods
     icon: https://via.placeholder.com/500
+    uploader: modrinth
+    upload-endpoint: 'https://staging-api.modrinth.com/v2'
+    upload-token: '' # modrinth token
     parser:
       exp: '(?P<name>.+?)-(?P<mcVersion>mc[0-9]+\.[0-9]+(\.[0-9]+)?)-(?P<modVersion>[0-9]+\.[0-9]+\.[0-9]+)\+(?P<buildId>build\.[0-9]+)(-sources)?(-dev)?\.jar'
+      ignore-files: '^.+?(-sources|-dev)\.jar$'
       name: name
       layers: [ mcVersion, modVersion, buildId ]
     projects:
       a:
+        id: a
         name: A
         icon: https://via.placeholder.com/500
         bearer: abc123
       b:
+        id: b
         name: B
         icon: https://via.placeholder.com/500
         bearer: abc123
       c:
+        id: c
         name: C
         icon: https://via.placeholder.com/500
         bearer: abc123
       d:
+        id: d
         name: D
         icon: https://via.placeholder.com/500
         bearer: abc123
       e:
+        id: e
         name: E
         icon: https://via.placeholder.com/500
         bearer: abc123
       f:
+        id: f
         name: F
         icon: https://via.placeholder.com/500
         bearer: abc123
       g:
+        id: g
         name: G
         icon: https://via.placeholder.com/500
         bearer: abc123
       h:
+        id: h
         name: H
         icon: https://via.placeholder.com/500
         bearer: abc123

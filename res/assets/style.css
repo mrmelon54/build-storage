@@ -6,6 +6,26 @@ body {
     font-family: "Roboto Mono", "Lucida Console", "Monaco", monospace;
 }
 
+button.rounded-blue {
+    background-color: rgb(2, 96, 170);
+    color: rgb(232, 230, 227);
+    text-decoration-color: currentcolor;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    text-transform: uppercase;
+    text-decoration: none;
+    box-shadow: rgba(32, 33, 49, 0.08) 0 0 1px, rgba(78, 85, 88, 0.16) 0 1px 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none currentcolor;
+    min-width: 100px;
+    cursor: pointer;
+    height: 36px;
+}
+
 header {
     padding: 0 60px;
     box-sizing: border-box;
@@ -24,6 +44,19 @@ header h1 {
     font-size: 20px;
     font-weight: 500;
     line-height: 28px;
+}
+
+header button.account-btn#loginMenu {
+    position: relative;
+    padding-left: 44px;
+}
+
+header button.account-btn#loginMenu img#loginMenuAvatar {
+    position: absolute;
+    left: 2px;
+    width: 32px;
+    top: 2px;
+    border-radius: 8px;
 }
 
 section {
@@ -51,15 +84,32 @@ section h2 {
     padding-bottom: 32px;
 }
 
-.card-view a {
-    text-decoration-color: currentcolor;
-    text-decoration: none;
-    display: block;
-    cursor: pointer;
-    margin-bottom: 24px;
+.card-view[data-card-style=list] {
+    grid-template-columns: repeat(1, minmax(0, 1fr));
 }
 
-.card-view a .card {
+@media only screen and (max-width: 1200px) {
+    .card-view[data-card-style] {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media only screen and (max-width: 800px) {
+    .card-view[data-card-style] {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media only screen and (max-width: 600px) {
+    .card-view[data-card-style] {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+}
+
+.card-view a.card {
+    text-decoration-color: currentcolor;
+    text-decoration: none;
+    margin-bottom: 24px;
     background-color: rgb(24, 26, 27);
     background-image: none;
     color: rgb(232, 230, 227);
@@ -69,10 +119,73 @@ section h2 {
     border-radius: 10px;
     transition: box-shadow .1s linear;
     padding: 19px 15px;
-    height: 100%;
+    cursor: default;
 }
 
-.card-view a .card img {
+.card-view a.card[href] {
+    cursor: pointer;
+}
+
+.card-view a.card h3 {
+    display: inline;
+}
+
+.card-view a.card img {
     color: red;
     font-size: 80%;
+}
+
+.card-view a.card .card-header {
+    display: flex;
+}
+
+button.icon-button {
+    position: relative;
+    padding-left: 44px;
+}
+
+button.icon-button::after {
+    position: absolute;
+    font-family: 'Material Symbols Outlined', serif;
+    -webkit-font-feature-settings: 'liga' 1;
+    -moz-font-feature-settings: 'liga' 1;
+    font-feature-settings: 'liga' 1;
+    font-size: 24px;
+    line-height: 36px;
+    left: 6px;
+    top: 0;
+    vertical-align: -50%;
+}
+
+.card-view a.card .card-header button.publish-btn {
+    margin: auto;
+    display: none;
+}
+
+.card-view a.card .card-header button.publish-btn::after {
+    content: "publish";
+}
+
+.card-view a.card .card-header button.publish-btn.is-publishing::after {
+    content: "autorenew";
+}
+
+.card-view a.card .card-header button.publish-btn.is-published::after {
+    content: "done";
+}
+
+.card-view a.card .card-header button.publish-btn.is-error::after {
+    content: "error";
+}
+
+.card-view a.card .card-header button.visit-btn {
+    margin: auto;
+}
+
+.card-view a.card .card-header button.visit-btn::after {
+    content: "open_in_new";
+}
+
+.logged-in .card-view a.card.card-can-upload .card-header button.publish-btn {
+    display: inline;
 }

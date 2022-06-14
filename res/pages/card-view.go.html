@@ -1,25 +1,51 @@
 <html lang="en-GB">
 <head>
     <title>{{ .Title }}</title>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0"/>
     <link rel="stylesheet" href="/assets/style.css"/>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+    <script src="/assets/main.js"></script>
 </head>
 <body>
 <header>
     <h1>{{ .PagePath }}</h1>
+    <button id="loginBtn" class="account-btn rounded-blue" onclick="loginWithDiscordStage2();">Login</button>
+    <button id="loginMenu" class="account-btn rounded-blue">
+        <img id="loginMenuAvatar" src="data:," alt=""/>
+        <span id="loginMenuName">Wumpus</span>
+    </button>
 </header>
 <section>
     {{ range $sec := .Sections }}
         <h2>{{ $sec.Name }}</h2>
-        <div class="card-view">
+        <div class="card-view" data-card-style="{{ .Style }}">
             {{ range $car := $sec.Cards }}
-                <a href="{{ pathJoin $.BasePath $car.Address }}">
-                    <div class="card">
-                        <h3>{{ $car.Name }}</h3>
+                {{ if eq $car.Address "" }}
+                    <a class="card {{ if $car.CanUpload }} card-can-upload {{ end }}" data-card-name="{{ $car.Name }}">
+                        <div class="card-header">
+                            <h3>{{ $car.Name }}</h3>
+                            <span style="flex-grow: 1;"></span>
+                            <!--<button class="visit-btn rounded-blue icon-button">Visit</button>-->
+                            <span style="width:16px"></span>
+                            <button class="publish-btn rounded-blue icon-button">Publish</button>
+                        </div>
                         {{ if ne $car.Icon "" }}
                             <img src="{{ $car.Icon }}" alt="Missing Icon"/>
                         {{ end }}
-                    </div>
-                </a>
+                    </a>
+                {{ else }}
+                    <a href="{{ pathJoin $.BasePath $car.Address }}" class="card {{ if $car.CanUpload }} card-can-upload {{ end }}">
+                        <div class="card-header">
+                            <h3>{{ $car.Name }}</h3>
+                            <span style="flex-grow: 1;"></span>
+                            <button class="publish-btn rounded-blue" data-login="required">Upload</button>
+                        </div>
+                        {{ if ne $car.Icon "" }}
+                            <img src="{{ $car.Icon }}" alt="Missing Icon"/>
+                        {{ end }}
+                    </a>
+                {{ end }}
             {{ end }}
         </div>
     {{ end }}

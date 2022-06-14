@@ -1,9 +1,11 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	_ "embed"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"github.com/MrMelon54/build-storage/manager"
 	"github.com/MrMelon54/build-storage/res"
@@ -23,13 +25,11 @@ import (
 	"strings"
 )
 
-type buildServiceKeyType int
-
 const (
-	KeyUser = buildServiceKeyType(iota)
-	KeyState
-	KeyAccessToken
-	KeyRefreshToken
+	LoginFrameStart = "<!DOCTYPE html><html><head><script>window.opener.postMessage({user:"
+	LoginFrameEnd   = "},\"%s\");window.close();</script></head></html>"
+	CheckFrameStart = "<!DOCTYPE html><html><head><script>window.onload=function(){window.parent.postMessage({user:"
+	CheckFrameEnd   = "},\"%s\");}</script></head></html>"
 )
 
 var uploaderArray = []Uploader{
@@ -46,6 +46,7 @@ type Module struct {
 }
 
 func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Module {
+	gob.Register(structure.OpenIdMeta{})
 	sessionStore := sessions.NewCookieStore([]byte(configYml.Login.SessionKey))
 	m := &Module{
 		oauthClient: &oauth2.Config{
@@ -72,7 +73,7 @@ func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Mo
 }
 
 func (m *Module) SetupModule() *http.Server {
-	gob.Register(new(buildServiceKeyType))
+	gob.Register(new(utils.BuildServiceKeyType))
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", func(rw http.ResponseWriter, req *http.Request) {
@@ -117,7 +118,19 @@ func (m *Module) SetupModule() *http.Server {
 		_, _ = io.Copy(rw, open)
 	})
 
+	router.HandleFunc("/assets/{name}.js", func(rw http.ResponseWriter, req *http.Request) {
+		vars := mux.Vars(req)
+		open, err := res.GetAssetsFilesystem().Open(vars["name"] + ".js")
+		if err != nil {
+			http.NotFound(rw, req)
+			return
+		}
+		rw.Header().Set("Content-Type", "text/javascript")
+		_, _ = io.Copy(rw, open)
+	})
+
 	router.HandleFunc("/login", m.stateManager.SessionWrapper(m.loginPage))
+	router.HandleFunc("/check", m.stateManager.SessionWrapper(m.checkPage))
 
 	router.HandleFunc("/{group}", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
@@ -170,19 +183,70 @@ func (m *Module) SetupModule() *http.Server {
 					dataLayers[i] = req.URL.Query().Get(strings.ToLower(v))
 				}
 
-				a := uploadMod.DisplayProject(req, vars["group"], vars["project"], group, project, dataLayers)
-				err := fillTemplate(rw, res.GetTemplateFileByName("card-view.go.html"), a)
+				a, err := uploadMod.DisplayProject(req, vars["group"], vars["project"], group, project, dataLayers)
 				if err != nil {
 					log.Println(err)
 					http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
+					return
 				}
-			} else {
-				http.Error(rw, "404 Not Found", http.StatusNotFound)
+				err = fillTemplate(rw, res.GetTemplateFileByName("card-view.go.html"), a)
+				if err != nil {
+					log.Println(err)
+					http.Error(rw, "500 Internal Server Error", http.StatusInternalServerError)
+					return
+				}
+				return
 			}
-		} else {
-			http.Error(rw, "404 Not Found", http.StatusNotFound)
 		}
+		http.Error(rw, "404 Not Found", http.StatusNotFound)
 	}).Methods(http.MethodGet)
+
+	router.HandleFunc("/{group}/{project}/publish", m.stateManager.SessionWrapper(func(rw http.ResponseWriter, req *http.Request, state *utils.State) {
+		if myUser, ok := utils.GetStateValue[*structure.OpenIdMeta](state, utils.KeyUser); ok {
+			if myUser == nil {
+				http.Error(rw, "401 Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			if !myUser.Admin {
+				http.Error(rw, "401 Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+		vars := mux.Vars(req)
+		if group, ok := m.buildManager.GetGroup(vars["group"]); ok {
+			uploadMod, ok := m.uploaderMap[group.Uploader]
+			if !ok {
+				http.Error(rw, "500 Internal Server Error: Failed to load renderer for this group", http.StatusInternalServerError)
+				return
+			}
+
+			filename := req.PostFormValue("file")
+			_, layers := structure.GetUploadMeta(filename, group.Parser)
+
+			if project, ok := group.Projects[vars["project"]]; ok {
+				if m.buildManager.FileExists(vars["group"], vars["project"], layers, filename) {
+					log.Println("File exists to upload:", path.Join(vars["group"], vars["project"], path.Join(layers...), filename))
+					err := uploadMod.PublishBuild(req, group, project, vars["group"], vars["project"], layers, filename)
+					if err != nil {
+						errMsg := err.Error()
+						if strings.HasPrefix(errMsg, "remote error: ") {
+							http.Error(rw, errMsg, http.StatusInternalServerError)
+							return
+						}
+						log.Println("Failed to publish build:", err)
+						http.Error(rw, "500 Internal Server Error: Failed to publish build", http.StatusInternalServerError)
+						return
+					}
+					_, _ = rw.Write([]byte("Successfully published build"))
+					return
+				} else {
+					http.Error(rw, "400 Bad Request: File doesn't exist", http.StatusBadRequest)
+					return
+				}
+			}
+		}
+		http.Error(rw, "404 Not Found", http.StatusNotFound)
+	})).Methods(http.MethodPost)
 
 	httpServer := &http.Server{
 		Addr:    m.configYml.Listen.Web,
@@ -206,13 +270,20 @@ func fillTemplate(rw http.ResponseWriter, text string, data any) error {
 }
 
 func (m *Module) loginPage(rw http.ResponseWriter, req *http.Request, state *utils.State) {
-	if myUser, ok := utils.GetStateValue[*string](state, KeyUser); ok {
+	q := req.URL.Query()
+	if q.Has("in_popup") {
+		state.Put("login-in-popup", true)
+	}
+	if myUser, ok := utils.GetStateValue[*structure.OpenIdMeta](state, utils.KeyUser); ok {
 		if myUser != nil {
+			if doLoginPopup(rw, m.configYml, state, myUser) {
+				return
+			}
 			http.Redirect(rw, req, "/", http.StatusTemporaryRedirect)
 			return
 		}
 	}
-	if flowState, ok := utils.GetStateValue[uuid.UUID](state, KeyState); ok {
+	if flowState, ok := utils.GetStateValue[uuid.UUID](state, utils.KeyState); ok {
 		q := req.URL.Query()
 		if q.Has("code") && q.Has("state") {
 			if q.Get("state") == flowState.String() {
@@ -221,9 +292,34 @@ func (m *Module) loginPage(rw http.ResponseWriter, req *http.Request, state *uti
 					fmt.Println("Exchange token error:", err)
 					return
 				}
+				state.Put(utils.KeyAccessToken, exchange.AccessToken)
+				state.Put(utils.KeyRefreshToken, exchange.RefreshToken)
 
-				state.Put(KeyAccessToken, exchange.AccessToken)
-				state.Put(KeyRefreshToken, exchange.RefreshToken)
+				buf := new(bytes.Buffer)
+				req2, err := http.NewRequest(http.MethodGet, m.configYml.Login.ResourceUrl, buf)
+				if err != nil {
+					return
+				}
+				req2.Header.Set("Authorization", "Bearer "+exchange.AccessToken)
+				do, err := http.DefaultClient.Do(req2)
+				if err != nil {
+					return
+				}
+
+				var meta structure.OpenIdMeta
+				decoder := json.NewDecoder(do.Body)
+				err = decoder.Decode(&meta)
+				if err != nil {
+					log.Println("Failed to decode external openid meta:", err)
+					http.Error(rw, "500 Internal Server Error: Failed to fetch user info", http.StatusInternalServerError)
+					return
+				}
+				meta.Admin = meta.Sub == m.configYml.Login.Owner
+				state.Put(utils.KeyUser, &meta)
+
+				if doLoginPopup(rw, m.configYml, state, &meta) {
+					return
+				}
 				http.Redirect(rw, req, "/", http.StatusTemporaryRedirect)
 				return
 			}
@@ -232,16 +328,43 @@ func (m *Module) loginPage(rw http.ResponseWriter, req *http.Request, state *uti
 		}
 	}
 	flowState := uuid.New()
-	state.Put(KeyState, flowState)
+	state.Put(utils.KeyState, flowState)
 	http.Redirect(rw, req, m.oauthClient.AuthCodeURL(flowState.String(), oauth2.AccessTypeOffline), http.StatusTemporaryRedirect)
 }
 
-func GetWebClient[T any, V any](m *Module, clientKey T, cb func(http.ResponseWriter, *http.Request, *utils.State, *V)) func(rw http.ResponseWriter, req *http.Request) {
-	return m.stateManager.SessionWrapper(func(rw http.ResponseWriter, req *http.Request, state *utils.State) {
-		if v, ok := utils.GetStateValue[*V](state, clientKey); ok && v != nil {
-			cb(rw, req, state, v)
+func (m *Module) checkPage(rw http.ResponseWriter, _ *http.Request, state *utils.State) {
+	if myUser, ok := utils.GetStateValue[*structure.OpenIdMeta](state, utils.KeyUser); ok {
+		if myUser != nil {
+			exportUserDataAsJson(rw, m.configYml, myUser, true)
 			return
 		}
-		http.Redirect(rw, req, "/login", http.StatusTemporaryRedirect)
-	})
+	}
+	rw.WriteHeader(http.StatusBadRequest)
+}
+
+func (m *Module) GetWebClient(cb func(http.ResponseWriter, *http.Request, *utils.State)) func(rw http.ResponseWriter, req *http.Request) {
+	return m.stateManager.SessionWrapper(cb)
+}
+
+func doLoginPopup(rw http.ResponseWriter, config structure.ConfigYaml, state *utils.State, meta *structure.OpenIdMeta) bool {
+	if b, ok := utils.GetStateValue[bool](state, "login-in-popup"); ok {
+		if b {
+			exportUserDataAsJson(rw, config, meta, false)
+			return true
+		}
+	}
+	return false
+}
+
+func exportUserDataAsJson(rw http.ResponseWriter, config structure.ConfigYaml, meta *structure.OpenIdMeta, checkMode bool) {
+	start := LoginFrameStart
+	end := LoginFrameEnd
+	if checkMode {
+		start = CheckFrameStart
+		end = CheckFrameEnd
+	}
+	_, _ = rw.Write([]byte(start))
+	encoder := json.NewEncoder(rw)
+	_ = encoder.Encode(meta)
+	_, _ = rw.Write([]byte(fmt.Sprintf(end, config.Login.OriginUrl)))
 }

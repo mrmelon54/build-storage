@@ -42,8 +42,8 @@ func (b *BuildManager) GetGroup(name string) (structure.GroupYaml, bool) {
 	return group, ok
 }
 
-func (b *BuildManager) Open(groupName, projectName string, projectLayers []string) (fs.File, error) {
-	join := path.Join(b.baseDir, b.configYml.BuildDir, groupName, projectName, path.Join(projectLayers...))
+func (b *BuildManager) Open(groupName, projectName string, projectLayers []string, filename string) (fs.File, error) {
+	join := path.Join(b.baseDir, b.configYml.BuildDir, groupName, projectName, path.Join(projectLayers...), filename)
 	return os.Open(join)
 }
 
@@ -77,4 +77,10 @@ func (b *BuildManager) ListSingleLayer(groupName, projectName string, projectLay
 		return nil, err
 	}
 	return dir, nil
+}
+
+func (b *BuildManager) FileExists(groupName, projectName string, layers []string, filename string) bool {
+	join := path.Join(b.baseDir, b.configYml.BuildDir, groupName, projectName, path.Join(layers...), filename)
+	_, err := os.Stat(join)
+	return err == nil
 }

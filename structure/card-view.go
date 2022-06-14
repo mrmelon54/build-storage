@@ -4,16 +4,20 @@ type CardView struct {
 	Title    string
 	PagePath string
 	BasePath string
+	Login    string
+	Icon     string
 	Sections []CardSection
 }
 
 type CardSection struct {
 	Name  string
+	Style string
 	Cards []CardItem
 }
 
 type CardItem struct {
-	Name    string
-	Icon    string
-	Address string
+	Name      string
+	Icon      string
+	Address   string
+	CanUpload bool
 }
