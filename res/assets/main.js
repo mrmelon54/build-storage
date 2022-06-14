@@ -67,6 +67,11 @@ function check_user() {
     }, function () {
         document.body.classList.remove("logged-in");
     });
+    showOrHideBoolFunc(is_logged_in && window.aa_build_storage_user.admin, function () {
+        document.body.classList.add("can-publish");
+    }, function () {
+        document.body.classList.remove("can-publish");
+    })
 
     if (window.aa_build_storage_user !== null) {
         document.getElementById("loginMenuName").textContent = window.aa_build_storage_user.name;

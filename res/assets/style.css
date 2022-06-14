@@ -63,7 +63,7 @@ section {
     max-width: 1800px;
     margin: 0 auto;
     border-color: currentcolor;
-    padding: 22px 60px 60px;
+    padding: 22px 60px 22px 60px;
     display: block;
 }
 
@@ -81,7 +81,6 @@ section h2 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     grid-gap: 32px;
     max-width: 100%;
-    padding-bottom: 32px;
 }
 
 .card-view[data-card-style=list] {
@@ -109,7 +108,6 @@ section h2 {
 .card-view a.card {
     text-decoration-color: currentcolor;
     text-decoration: none;
-    margin-bottom: 24px;
     background-color: rgb(24, 26, 27);
     background-image: none;
     color: rgb(232, 230, 227);
@@ -186,6 +184,6 @@ button.icon-button::after {
     content: "open_in_new";
 }
 
-.logged-in .card-view a.card.card-can-upload .card-header button.publish-btn {
+.logged-in.can-publish .card-view a.card.card-can-upload .card-header button.publish-btn {
     display: inline;
 }
