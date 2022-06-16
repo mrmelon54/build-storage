@@ -1,14 +1,14 @@
 body {
-    color: rgb(208, 204, 198);
-    background-color: rgb(27, 30, 31);
+    color: #d0ccc6;
+    background-color: #383c4a;
     padding: 0;
     margin: 0;
     font-family: "Roboto Mono", "Lucida Console", "Monaco", monospace;
 }
 
 button.rounded-blue {
-    background-color: rgb(2, 96, 170);
-    color: rgb(232, 230, 227);
+    background-color: #0260aa;
+    color: #e8e6e3;
     text-decoration-color: currentcolor;
     padding: 10px 24px;
     border-radius: 8px;
@@ -16,7 +16,7 @@ button.rounded-blue {
     font-weight: 500;
     text-transform: uppercase;
     text-decoration: none;
-    box-shadow: rgba(32, 33, 49, 0.08) 0 0 1px, rgba(78, 85, 88, 0.16) 0 1px 2px;
+    box-shadow: #20213114 0 0 1px, #4e555828 0 1px 2px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -35,9 +35,9 @@ header {
     height: 80px;
     min-height: 80px;
     max-height: 80px;
-    background-color: rgb(24, 26, 27);
+    background-color: #2e323e;
     background-image: none;
-    border-bottom-color: rgba(140, 130, 115, 0.1);
+    border-bottom-color: #8c827319;
 }
 
 header h1 {
@@ -108,10 +108,10 @@ section h2 {
 .card-view a.card {
     text-decoration-color: currentcolor;
     text-decoration: none;
-    background-color: rgb(24, 26, 27);
+    background-color: #2e323e;
     background-image: none;
-    color: rgb(232, 230, 227);
-    box-shadow: rgba(32, 33, 49, 0.08) 0 0 1px, rgba(78, 85, 88, 0.16) 0 0 2px;
+    color: #e8e6e3;
+    box-shadow: #20213114 0 0 1px, #4e555828 0 0 2px;
     display: flex;
     flex-flow: column;
     border-radius: 10px;
