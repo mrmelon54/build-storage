@@ -6,6 +6,7 @@ import (
 	"github.com/MrMelon54/build-storage/manager"
 	"github.com/MrMelon54/build-storage/structure"
 	"github.com/MrMelon54/build-storage/utils"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -54,6 +55,7 @@ func DisplayProject(buildManager *manager.BuildManager, configYml structure.Conf
 				_, l2 := structure.GetUploadMeta(f2+utils.BsMetaExt, group.Parser)
 				openMeta, err := buildManager.Open(groupName, projectName, l2, f2+utils.BsMetaExt)
 				if err != nil {
+					log.Printf("Failed to load card '%s/%s': %s\n", strings.Join(l2, "/"), f2, err)
 					continue
 				}
 
