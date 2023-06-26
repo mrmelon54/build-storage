@@ -19,9 +19,13 @@ groups:
   mc-mod:
     name: Minecraft Mods
     icon: https://via.placeholder.com/500
-    uploader: modrinth
-    upload-endpoint: 'https://staging-api.modrinth.com/v2'
-    upload-token: '' # modrinth token
+    uploader:
+      modrinth:
+        endpoint: 'https://api.modrinth.com/v2'
+        token: '' # modrinth token
+      curseforge:
+        endpoint: 'https://www.curseforge.com/api'
+        token: '' # curseforge token
     parser:
       exp: '(?P<name>.+?)-(?P<mcVersion>mc[0-9]+\.[0-9]+(\.[0-9]+)?)-(?P<modVersion>[0-9]+\.[0-9]+\.[0-9]+)\+(?P<buildId>build\.[0-9]+)(-sources)?(-dev)?\.jar'
       ignore-files: '^.+?(-sources|-dev)\.jar$'

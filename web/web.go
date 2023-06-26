@@ -12,6 +12,7 @@ import (
 	"github.com/MrMelon54/build-storage/structure"
 	"github.com/MrMelon54/build-storage/utils"
 	"github.com/MrMelon54/build-storage/web/modrinth"
+	"github.com/MrMelon54/build-storage/web/uploader"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -32,8 +33,10 @@ const (
 	CheckFrameEnd   = "},\"%s\");}</script></head></html>"
 )
 
-var uploaderArray = []Uploader{
+var uploaderArray = []uploader.Uploader{
 	&modrinth.UploadToModrinth{},
+	//TODO: add curseforge support
+	// &curseforge.UploadToCurseforge{},
 }
 
 type Module struct {
@@ -42,7 +45,7 @@ type Module struct {
 	stateManager *utils.StateManager
 	configYml    structure.ConfigYaml
 	buildManager *manager.BuildManager
-	uploaderMap  map[string]Uploader
+	uploaderMap  map[string]uploader.Uploader
 }
 
 func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Module {
@@ -63,7 +66,7 @@ func New(configYml structure.ConfigYaml, buildManager *manager.BuildManager) *Mo
 		configYml:    configYml,
 		buildManager: buildManager,
 	}
-	uploaderMap := make(map[string]Uploader)
+	uploaderMap := make(map[string]uploader.Uploader)
 	for _, i := range uploaderArray {
 		uploaderMap[i.Name()] = i
 		i.Setup(m, configYml, buildManager)
@@ -171,7 +174,7 @@ func (m *Module) SetupModule() *http.Server {
 	router.HandleFunc("/{group}/{project}", func(rw http.ResponseWriter, req *http.Request) {
 		vars := mux.Vars(req)
 		if group, ok := m.buildManager.GetGroup(vars["group"]); ok {
-			uploadMod, ok := m.uploaderMap[group.Uploader]
+			uploadMod, ok := m.uploaderMap[group.Renderer]
 			if !ok {
 				http.Error(rw, "500 Internal Server Error: Failed to load renderer for this group", http.StatusInternalServerError)
 				return
@@ -214,28 +217,31 @@ func (m *Module) SetupModule() *http.Server {
 		}
 		vars := mux.Vars(req)
 		if group, ok := m.buildManager.GetGroup(vars["group"]); ok {
-			uploadMod, ok := m.uploaderMap[group.Uploader]
-			if !ok {
-				http.Error(rw, "500 Internal Server Error: Failed to load renderer for this group", http.StatusInternalServerError)
-				return
-			}
-
 			filename := req.PostFormValue("file")
 			_, layers := structure.GetUploadMeta(filename, group.Parser)
 
 			if project, ok := group.Projects[vars["project"]]; ok {
 				if m.buildManager.FileExists(vars["group"], vars["project"], layers, filename) {
 					log.Println("File exists to upload:", path.Join(vars["group"], vars["project"], path.Join(layers...), filename))
-					err := uploadMod.PublishBuild(req, group, project, vars["group"], vars["project"], layers, filename)
-					if err != nil {
-						errMsg := err.Error()
-						if strings.HasPrefix(errMsg, "remote error: ") {
-							http.Error(rw, errMsg, http.StatusInternalServerError)
+
+					for k, v := range group.Uploader {
+						if uploaderMod, ok := m.uploaderMap[k]; ok {
+							err := uploaderMod.PublishBuild(req, group, project, v, vars["group"], vars["project"], layers, filename)
+							if err != nil {
+								errMsg := err.Error()
+								if strings.HasPrefix(errMsg, "remote error: ") {
+									http.Error(rw, errMsg, http.StatusInternalServerError)
+									return
+								}
+								log.Printf("Failed to publish build to %s: %s\n", k, err)
+								http.Error(rw, "500 Internal Server Error: Failed to publish build", http.StatusInternalServerError)
+								return
+							}
+						} else {
+							log.Printf("Failed to publish build to %s: %s\n", k, "unknown mod publisher")
+							http.Error(rw, "500 Internal Server Error: Failed to publish build", http.StatusInternalServerError)
 							return
 						}
-						log.Println("Failed to publish build:", err)
-						http.Error(rw, "500 Internal Server Error: Failed to publish build", http.StatusInternalServerError)
-						return
 					}
 					_, _ = rw.Write([]byte("Successfully published build"))
 					return

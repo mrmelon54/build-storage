@@ -91,16 +91,28 @@ section h2 {
     .card-view[data-card-style] {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
+
+    .card-view[data-card-style=list] {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
 }
 
 @media only screen and (max-width: 800px) {
     .card-view[data-card-style] {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+
+    .card-view[data-card-style=list] {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
 }
 
 @media only screen and (max-width: 600px) {
     .card-view[data-card-style] {
+        grid-template-columns: repeat(1, minmax(0, 1fr));
+    }
+
+    .card-view[data-card-style=list] {
         grid-template-columns: repeat(1, minmax(0, 1fr));
     }
 }
@@ -186,4 +198,8 @@ button.icon-button::after {
 
 .logged-in.can-publish .card-view a.card.card-can-upload .card-header button.publish-btn {
     display: inline;
+}
+
+.card-view a.card .card-header .sha256sum {
+    font-size: 85%;
 }

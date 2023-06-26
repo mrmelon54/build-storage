@@ -1,4 +1,4 @@
-package web
+package uploader
 
 import (
 	"github.com/MrMelon54/build-storage/manager"
@@ -11,5 +11,5 @@ type Uploader interface {
 	Name() string
 	Setup(utils.IModule, structure.ConfigYaml, *manager.BuildManager)
 	DisplayProject(*http.Request, string, string, structure.GroupYaml, structure.ProjectYaml, []string) (structure.CardView, error)
-	PublishBuild(*http.Request, structure.GroupYaml, structure.ProjectYaml, string, string, []string, string) error
+	PublishBuild(*http.Request, structure.GroupYaml, structure.ProjectYaml, structure.UploaderYaml, string, string, []string, string) error
 }

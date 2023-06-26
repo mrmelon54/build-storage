@@ -20,4 +20,6 @@ type CardItem struct {
 	Icon      string
 	Address   string
 	CanUpload bool
+	Sha256    string
+	Sha512    string
 }

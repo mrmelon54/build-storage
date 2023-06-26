@@ -28,13 +28,17 @@ type LoginYaml struct {
 }
 
 type GroupYaml struct {
-	Name           string                 `yaml:"name"`
-	Icon           string                 `yaml:"icon"`
-	Uploader       string                 `yaml:"uploader"`
-	UploadEndpoint string                 `yaml:"upload-endpoint"`
-	UploadToken    string                 `yaml:"upload-token"`
-	Parser         ParserYaml             `yaml:"parser"`
-	Projects       map[string]ProjectYaml `yaml:"projects"`
+	Name     string                  `yaml:"name"`
+	Icon     string                  `yaml:"icon"`
+	Renderer string                  `yaml:"renderer"`
+	Uploader map[string]UploaderYaml `yaml:"uploader"`
+	Parser   ParserYaml              `yaml:"parser"`
+	Projects map[string]ProjectYaml  `yaml:"projects"`
+}
+
+type UploaderYaml struct {
+	Endpoint string `yaml:"endpoint"`
+	Token    string `yaml:"token"`
 }
 
 type ParserYaml struct {

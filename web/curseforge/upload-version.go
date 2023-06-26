@@ -1,4 +1,4 @@
-package modrinth
+package curseforge
 
 import (
 	"bytes"

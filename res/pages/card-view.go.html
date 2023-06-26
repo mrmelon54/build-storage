@@ -24,7 +24,10 @@
                 {{ if eq $car.Address "" }}
                     <a class="card {{ if $car.CanUpload }} card-can-upload {{ end }}" data-card-name="{{ $car.Name }}">
                         <div class="card-header">
-                            <h3>{{ $car.Name }}</h3>
+                            <div>
+                                <h3>{{ $car.Name }}</h3>
+                                <div class="sha256sum">SHA-256: {{ $car.Sha256 }}</div>
+                            </div>
                             <span style="flex-grow: 1;"></span>
                             <!--<button class="visit-btn rounded-blue icon-button">Visit</button>-->
                             <span style="width:16px"></span>

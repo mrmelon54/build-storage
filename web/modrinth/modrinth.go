@@ -1,20 +1,22 @@
 package modrinth
 
 import (
+	"archive/zip"
 	"fmt"
 	"github.com/MrMelon54/build-storage/manager"
 	"github.com/MrMelon54/build-storage/structure"
 	"github.com/MrMelon54/build-storage/utils"
+	"github.com/MrMelon54/build-storage/web/mc"
+	"github.com/MrMelon54/build-storage/web/uploader"
+	"io"
 	"net/http"
-	"net/url"
-	"path"
-	"sort"
-	"strings"
 )
 
 type modrinthServiceKeyType int
 
 const KeyModrinthClient = modrinthServiceKeyType(iota)
+
+var _ uploader.Uploader = &UploadToModrinth{}
 
 type UploadToModrinth struct {
 	module       utils.IModule
@@ -30,89 +32,55 @@ func (u *UploadToModrinth) Setup(module utils.IModule, configYml structure.Confi
 	u.buildManager = buildManager
 }
 
-func (u *UploadToModrinth) DisplayProject(_ *http.Request, groupName string, projectName string, group structure.GroupYaml, project structure.ProjectYaml, layers []string) (structure.CardView, error) {
-	files, err := u.buildManager.ListSingleLayer(groupName, projectName, layers)
-	if err != nil {
-		return structure.CardView{}, err
-	}
-
-	layers = removeEmptyLayers(layers)
-	cardSections := make([]structure.CardSection, 0)
-	switch len(layers) {
-	case 0:
-		for _, file := range files {
-			f := path.Base(file.Name())
-			sFiles, err := u.buildManager.ListSpecificFiles(groupName, projectName, []string{f})
-			if err != nil {
-				return structure.CardView{}, err
-			}
-
-			cardItems := make([]structure.CardItem, 0)
-			for i := range sFiles {
-				f2 := path.Base(sFiles[i])
-				if group.Parser.IgnoreFiles.MatchString(f2) {
-					continue
-				}
-
-				values := url.Values{}
-				for i := 0; i <= len(layers); i++ {
-					if i >= len(group.Parser.Layers) {
-						break
-					}
-					layer := ""
-					if i < len(layers) {
-						layer = layers[i]
-					}
-					values.Set(strings.ToLower(group.Parser.Layers[i]), layer)
-				}
-
-				cardItems = append(cardItems, structure.CardItem{Name: f2, CanUpload: true})
-			}
-
-			sort.SliceStable(cardItems, func(i, j int) bool {
-				return cardItems[i].Name > cardItems[j].Name
-			})
-			cardSections = append(cardSections, structure.CardSection{
-				Name:  f,
-				Style: "list",
-				Cards: cardItems,
-			})
-		}
-	}
-
-	sort.SliceStable(cardSections, func(i, j int) bool {
-		return cardSections[i].Name > cardSections[j].Name
-	})
-
-	return structure.CardView{
-		Title:    fmt.Sprintf("%s | %s | %s", project.Name, group.Name, u.configYml.Title),
-		PagePath: fmt.Sprintf("%s / %s / %s", u.configYml.Title, group.Name, project.Name),
-		BasePath: fmt.Sprintf("/%s/%s", groupName, projectName),
-		Sections: cardSections,
-	}, nil
+func (u *UploadToModrinth) DisplayProject(req *http.Request, groupName string, projectName string, group structure.GroupYaml, project structure.ProjectYaml, layers []string) (structure.CardView, error) {
+	return mc.DisplayProject(u.buildManager, u.configYml, req, groupName, projectName, group, project, layers)
 }
 
-func (u *UploadToModrinth) PublishBuild(_ *http.Request, group structure.GroupYaml, project structure.ProjectYaml, groupName string, projectName string, layers []string, filename string) error {
+func (u *UploadToModrinth) PublishBuild(_ *http.Request, group structure.GroupYaml, project structure.ProjectYaml, upload structure.UploaderYaml, groupName string, projectName string, layers []string, filename string) error {
 	open, err := u.buildManager.Open(groupName, projectName, layers, filename)
 	if err != nil {
 		return err
 	}
-	uploader := NewVersionUploader(group.UploadEndpoint, group.UploadToken)
-	return uploader.CreateVersion(project.Id, filename, layers[1], "release", []string{layers[0][2:]}, []string{"fabric"}, true, filename, open)
-}
+	stat, err := open.Stat()
+	if err != nil {
+		return err
+	}
 
-func removeEmptyLayers(layers []string) []string {
-	i := 0
-	for i < len(layers) {
-		if layers[i] == "" {
-			break
-		}
-		i++
+	// open file as zip
+	zr, err := zip.NewReader(open, stat.Size())
+	if err != nil {
+		return err
 	}
-	if i < len(layers) {
-		return layers[:i]
+
+	platforms := mc.DetectMcPlatforms(zr)
+
+	// don't use zr after this
+	zr = nil
+
+	// no platforms
+	if len(platforms) == 0 {
+		return fmt.Errorf("failed to upload: no platform found")
 	}
-	return layers[:]
+
+	// try seeking back to the start
+	_, err = open.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	// make an uploader and create the version
+	uploader := NewVersionUploader(upload.Endpoint, upload.Token)
+	err = uploader.CreateVersion(project.Id, filename, layers[1], "release", []string{layers[0][2:]}, platforms, true, filename, open)
+	if err != nil {
+		return err
+	}
+
+	// load metadata
+	metaFile, err := u.buildManager.Create(groupName, projectName, layers, filename+".published")
+	if err != nil {
+		return err
+	}
+	return metaFile.Close()
 }
 
 func (u *UploadToModrinth) getClient(cb func(http.ResponseWriter, *http.Request, *utils.State, *VersionUploader)) func(rw http.ResponseWriter, req *http.Request) {
