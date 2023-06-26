@@ -19,6 +19,7 @@ groups:
   mc-mod:
     name: Minecraft Mods
     icon: https://via.placeholder.com/500
+    renderer: modrinth
     uploader:
       modrinth:
         endpoint: 'https://api.modrinth.com/v2'
